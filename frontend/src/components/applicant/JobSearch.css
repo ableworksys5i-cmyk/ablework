@@ -1,0 +1,33 @@
+.job-search { padding: 18px; background: #f4f7fc; border-radius: 10px; }
+.job-search h2 { font-size: 2rem; margin-bottom: 20px; color: #102a43; }
+.filter-panel { background: #fff; border: 1px solid #d8e2ef; border-radius: 10px; padding: 18px; margin-bottom: 30px; }
+.filter-panel h3 { margin: 0 0 16px; }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 14px; }
+.filter-input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccd7e3; }
+.clear-btn { padding: 9px 16px; background: #6c757d; color: #fff; border-radius: 6px; border: none; cursor: pointer; }
+.result-count { margin-bottom: 20px; color: #486581; }
+.job-listing { display: grid; gap: 20px; }
+.job-card { background: white; border: 1px solid #d8e2ef; border-radius: 10px; padding: 18px; box-shadow: 0 8px 15px rgba(138, 156, 178, 0.12); }
+.job-card header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+.job-card h3 { margin: 0 0 6px; }
+.job-card p { margin: 0 0 12px; color: #546e7a; }
+.job-card .tag { display: inline-block; padding: 4px 10px; background: #eaf0ff; border-radius: 999px; font-size: 13px; color: #234f93; }
+.job-card .btn { padding: 8px 12px; border-radius: 6px; border: none; color: white; cursor: pointer; font-size: 14px; }
+.job-card .btn.save { background: #ffc107; }
+.job-card .btn.apply { background: #007bff; }
+.job-empty { text-align: center; padding: 50px; border: 2px dashed #ccd7e3; border-radius: 10px; background: #f9fbff; }
+.job-map { margin-top: 30px; background: #fff; border: 1px solid #d8e2ef; border-radius: 10px; padding: 18px; }
+.job-map .map-placeholder { height: 300px; background: #e8eef8; border: 2px dashed #c5d4e6; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+.card-header .info { flex: 1; }
+.card-header h3 { margin: 0 0 5px 0; font-size: 1.5rem; }
+.card-header p { margin: 0 0 10px 0; color: #666; font-size: 1.1rem; }
+.tags { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; }
+.tag { display: flex; align-items: center; gap: 5px; font-size: 14px; }
+.action-btn { padding: 8px 12px; border: none; border-radius: 6px; color: white; font-size: 14px; cursor: pointer; }
+.action-btn.saved { background: #6c757d; cursor: not-allowed; }
+.action-btn.save { background: #ffc107; }
+.action-btn.apply { background: #007bff; }
+.job-description { margin: 0 0 15px 0; color: #555; line-height: 1.5; }
+.job-meta { display: flex; justify-content: space-between; align-items: center; }
+.skill-chip { background: #e9ecef; padding: 3px 8px; border-radius: 12px; font-size: 12px; }

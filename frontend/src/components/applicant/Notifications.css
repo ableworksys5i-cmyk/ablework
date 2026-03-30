@@ -1,0 +1,16 @@
+.notifications-root { padding: 18px; background: #f4f7fc; border-radius: 10px; }
+.notifications-root h2 { font-size: 2rem; margin-bottom: 20px; color: #102a43; }
+.notification-summary, .notification-card, .empty-state { background: white; border: 1px solid #d8e2ef; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
+.notification-header { display: flex; justify-content: space-between; align-items: center; }
+.notification-list { display: grid; gap: 15px; }
+.notification-card { position: relative; border-left-width: 5px; }
+.notification-card.unread { background: #e7f3ff; }
+.notification-avatars .icon { font-size: 1.95rem; margin-right: 12px; }
+.notification-meta h4 { font-size: 1.15rem; margin: 0 0 8px; }
+.notification-meta p { margin: 0 0 12px; color: #455a64; }
+.notification-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.notification-btn { padding: 6px 12px; border-radius: 6px; border: none; color: white; font-size: 12px; cursor: pointer; }
+.notification-btn.read { background: #28a745; }
+.notification-btn.delete { background: #dc3545; }
+.notification-btn.primary { background: #007bff; }
+.empty-state { text-align: center; }

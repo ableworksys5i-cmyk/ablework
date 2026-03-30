@@ -1,0 +1,17 @@
+.nearby-jobs { padding: 18px; background: #f4f7fc; border-radius: 10px; }
+.nearby-jobs h2 { font-size: 2rem; margin-bottom: 20px; color: #102a43; }
+.location-card, .job-card, .map-card { background: #fff; border: 1px solid #d8e2ef; border-radius: 10px; padding: 18px; margin-bottom: 30px; }
+.location-card .title { display: flex; gap: 10px; margin-bottom: 10px; }
+.location-card p { margin: 0; color: #52637a; }
+.job-listing { display: grid; gap: 20px; }
+.job-card { border-radius: 10px; box-shadow: 0 6px 12px rgba(16, 32, 64, 0.08); }
+.job-card h3 { margin: 0 0 6px; }
+.job-card p { margin: 0; color: #52637a; }
+.job-actions { display: flex; gap: 10px; }
+.job-actions .btn { border: none; border-radius: 6px; color: #fff; padding: 8px 12px; cursor: pointer; }
+.job-actions .btn.saved { background: #6c757d; cursor: not-allowed; }
+.job-actions .btn.save { background: #ffc107; }
+.job-actions .btn.apply { background: #007bff; }
+.status-pill { display: inline-block; background: #e6f4ff; color: #0065d1; border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+.map-placeholder { height: 300px; background: #e8eef8; border: 2px dashed #c5d4e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.empty-state { text-align: center; padding: 60px; border: 2px dashed #ccd7e3; border-radius: 10px; background: #f9fbff; }
