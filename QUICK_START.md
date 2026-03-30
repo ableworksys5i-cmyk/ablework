@@ -20,7 +20,7 @@ Your Employer Dashboard now has **complete functionality** with all features wor
 2. Find an applicant with status "pending"
 3. Click "✓ Shortlist" button
 4. Status should change to "shortlisted"
-5. Applicant now shows "📅 Interview" button
+5. Applicant now shows "📅 Interview" button. gb
 ```
 
 ### Test 2: Schedule an Interview

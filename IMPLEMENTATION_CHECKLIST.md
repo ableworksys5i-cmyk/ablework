@@ -15,7 +15,7 @@
 - [x] Interview scheduling modal
 - [x] Job offer modal
 - [x] Profile edit modal
-- [x] Job creation modal
+- [x] Job creation modal .,l,lrwewefewfwe
 
 ### State Management
 - [x] Dashboard state (activeTab)
