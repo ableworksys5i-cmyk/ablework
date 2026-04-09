@@ -67,14 +67,6 @@ function ApplicantModal({ selectedApplicant, setShowApplicantModal, handleApplic
                 <strong>Applied Date:</strong>
                 <p style={{ margin: "5px 0 0 0" }}>{new Date(selectedApplicant.applied_at).toLocaleDateString()}</p>
               </div>
-              <div>
-                <strong>Match Score:</strong>
-                <p style={{ margin: "5px 0 0 0" }}>{selectedApplicant.match_score}%</p>
-              </div>
-              <div>
-                <strong>Distance:</strong>
-                <p style={{ margin: "5px 0 0 0" }}>{selectedApplicant.distance} km</p>
-              </div>
             </div>
           </div>
 
