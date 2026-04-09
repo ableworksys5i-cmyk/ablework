@@ -51,9 +51,9 @@ router.get("/:user_id", (req, res) => {
       e.company_name,
       e.company_address,
       e.contact_number,
-      e.latitude,
-      e.longitude,
-      e.logo
+      e.company_website,
+      e.logo,
+      e.verification_document
     FROM users u
     LEFT JOIN employers e ON u.user_id = e.user_id
     WHERE u.user_id = ?
@@ -76,7 +76,11 @@ router.get("/:user_id", (req, res) => {
 // Update employer profile
 router.put("/:user_id", (req, res) => {
   const { user_id } = req.params;
-  const { email, username, company_name, company_address, contact_number } = req.body;
+  const { email, username, company_name, company_address, contact_number, company_website, latitude, longitude } = req.body;
+
+  console.log("=== UPDATE PROFILE ===");
+  console.log("company_website:", company_website, "(type:", typeof company_website, ")");
+  console.log("=== END ===");
 
   // Update users table (email + username only)
   const userSql = `UPDATE users SET email = ?, username = ? WHERE user_id = ?`;
@@ -87,34 +91,66 @@ router.put("/:user_id", (req, res) => {
     }
 
     // Update employers table
-    const employerSql = `UPDATE employers SET company_name = ?, company_address = ?, contact_number = ? WHERE user_id = ?`;
-    db.query(employerSql, [company_name, company_address, contact_number, user_id], (err, employerResult) => {
+    const employerSql = `UPDATE employers SET company_name = ?, company_address = ?, contact_number = ?, company_website = ? WHERE user_id = ?`;
+    db.query(employerSql, [company_name, company_address, contact_number, (company_website && company_website.trim()) ? company_website.trim() : null, user_id], (err, employerResult) => {
       if (err) {
         console.log("Update employer error:", err);
         return res.status(500).json({ error: "Database error updating employer" });
       }
 
-      res.json({ message: "Profile updated successfully" });
+      if (latitude && longitude) {
+        const locSql = "INSERT INTO user_locations (user_id, latitude, longitude) VALUES (?, ?, ?)";
+        db.query(locSql, [user_id, latitude, longitude], (locErr) => {
+          if (locErr) {
+            console.log("User location insert error:", locErr);
+          }
+          res.json({ message: "Profile updated successfully" });
+        });
+      } else {
+        res.json({ message: "Profile updated successfully" });
+      }
     });
   });
 });
 
 // Upload employer logo
-router.post("/:user_id/logo", logoUpload.single("logo_file"), (req, res) => {
-  const user_id = req.params.user_id;
-  const logoFileName = req.file ? req.file.filename : null;
-
-  if (!logoFileName) {
-    return res.status(400).json({ message: "No file uploaded" });
-  }
-
-  const sql = "UPDATE employers SET logo = ? WHERE user_id = ?";
-  db.query(sql, [logoFileName, user_id], (err) => {
+router.post("/:user_id/logo", (req, res) => {
+  logoUpload.single("logo_file")(req, res, (err) => {
     if (err) {
-      console.log("Logo upload error:", err);
-      return res.status(500).json({ message: "Failed to update logo" });
+      console.log("Multer error:", err);
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ message: "File too large. Maximum size is 2MB." });
+        }
+      }
+      return res.status(400).json({ message: err.message || "File upload error" });
     }
-    return res.json({ message: "Logo uploaded successfully", logo: logoFileName });
+
+    const user_id = req.params.user_id;
+    const logoFileName = req.file ? req.file.filename : null;
+
+    console.log("Logo upload attempt:");
+    console.log("User ID:", user_id);
+    console.log("File:", req.file);
+    console.log("File name:", logoFileName);
+
+    if (!logoFileName) {
+      console.log("No file uploaded - req.file is null or undefined");
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const sql = "UPDATE employers SET logo = ? WHERE user_id = ?";
+    console.log("Executing SQL:", sql, "with params:", [logoFileName, user_id]);
+
+    db.query(sql, [logoFileName, user_id], (err, result) => {
+      if (err) {
+        console.log("Logo upload database error:", err);
+        return res.status(500).json({ message: "Failed to update logo" });
+      }
+
+      console.log("Logo upload successful, result:", result);
+      return res.json({ message: "Logo uploaded successfully", logo: logoFileName });
+    });
   });
 });
 
@@ -132,7 +168,7 @@ router.get("/:user_id/jobs", (req, res) => {
     }
 
     console.log('Employer jobs query =', employer_id);
-    const sql = `SELECT j.job_id, j.job_title AS title, j.job_description AS description, j.job_category AS category, j.location, j.latitude, j.longitude, j.status, j.created_at FROM jobs j WHERE j.employer_id = ? ORDER BY j.created_at DESC`;
+    const sql = `SELECT j.job_id, j.job_title AS title, j.job_description AS description, j.job_category AS category, j.location, j.latitude, j.longitude, j.status, j.requirements, j.required_skills, j.salary, j.job_type, j.job_radius, j.created_at, COUNT(a.application_id) AS applicants_count FROM jobs j LEFT JOIN applications a ON j.job_id = a.job_id WHERE j.employer_id = ? GROUP BY j.job_id ORDER BY j.created_at DESC`;
     console.log('Employer jobs SQL:', sql);
     db.query(sql, [employer_id], (err, result) => {
       if (err) {
@@ -146,8 +182,7 @@ router.get("/:user_id/jobs", (req, res) => {
         requirements: job.requirements || "",
         salary: job.salary || "",
         job_type: job.job_type || "full-time",
-        job_radius: job.job_radius || 10,
-        applicants_count: job.applicants_count || 0
+        job_radius: job.job_radius || 10
       }));
 
       res.json(normalized);
@@ -158,7 +193,11 @@ router.get("/:user_id/jobs", (req, res) => {
 // Create new employer job posting
 router.post("/:user_id/jobs", (req, res) => {
   const { user_id } = req.params;
-  const { title, description, location, latitude, longitude, category, status } = req.body;
+  const { title, description, requirements, required_skills, location, latitude, longitude, category, status, salary, job_type, job_radius } = req.body;
+  
+  console.log("=== CREATE JOB ===" );
+  console.log("required_skills:", required_skills, "(type:", typeof required_skills, ")");
+  console.log("=== END ===");
 
   getEmployerIdFromUser(user_id, (err, employer_id) => {
     if (err) {
@@ -169,7 +208,14 @@ router.post("/:user_id/jobs", (req, res) => {
       return res.status(404).json({ error: "Employer not found" });
     }
 
-    const sql = `INSERT INTO jobs (employer_id, job_title, job_description, job_category, location, latitude, longitude, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
+    if (!requirements || !requirements.trim()) {
+      return res.status(400).json({ error: "Job requirements are required for employer verification." });
+    }
+
+    const sql = `INSERT INTO jobs (employer_id, job_title, job_description, job_category, location, latitude, longitude, status, requirements, required_skills, salary, job_type, job_radius, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
+
+    const processedSkills = (required_skills && required_skills.trim()) ? required_skills.trim() : null;
+    console.log("Inserting job with required_skills:", processedSkills);
 
     db.query(sql, [
       employer_id,
@@ -179,12 +225,31 @@ router.post("/:user_id/jobs", (req, res) => {
       location,
       latitude || null,
       longitude || null,
-      status || 'active'
+      status || 'active',
+      requirements,
+      processedSkills,
+      salary || null,
+      job_type || 'full-time',
+      job_radius || 10
     ], (err, result) => {
       if (err) {
         console.log("Create job error:", err);
         return res.status(500).json({ error: "Database error", details: err.message });
       }
+      console.log("Job created successfully with ID:", result.insertId);
+      
+      // Emit real-time update
+      global.io.emit('jobPosted', {
+        job_id: result.insertId,
+        employer_id,
+        title,
+        category,
+        location,
+        latitude,
+        longitude
+      });
+      console.log('Emitted jobPosted event for job:', result.insertId);
+      
       res.json({ message: "Job created", job_id: result.insertId });
     });
   });
@@ -193,7 +258,7 @@ router.post("/:user_id/jobs", (req, res) => {
 // Update employer job posting
 router.put("/:user_id/jobs/:job_id", (req, res) => {
   const { user_id, job_id } = req.params;
-  const { title, description, location, latitude, longitude, category, status } = req.body;
+  const { title, description, requirements, required_skills, location, latitude, longitude, category, status, salary, job_type, job_radius } = req.body;
 
   getEmployerIdFromUser(user_id, (err, employer_id) => {
     if (err) {
@@ -204,7 +269,14 @@ router.put("/:user_id/jobs/:job_id", (req, res) => {
       return res.status(404).json({ error: "Employer not found" });
     }
 
-    const sql = `UPDATE jobs SET job_title = ?, job_description = ?, job_category = ?, location = ?, latitude = ?, longitude = ?, status = ? WHERE job_id = ? AND employer_id = ?`;
+    if (!requirements || !requirements.trim()) {
+      return res.status(400).json({ error: "Job requirements are required for employer verification." });
+    }
+
+    const sql = `UPDATE jobs SET job_title = ?, job_description = ?, job_category = ?, location = ?, latitude = ?, longitude = ?, status = ?, requirements = ?, required_skills = ?, salary = ?, job_type = ?, job_radius = ? WHERE job_id = ? AND employer_id = ?`;
+
+    const processedSkills = (required_skills && required_skills.trim()) ? required_skills.trim() : null;
+    console.log("Updating job with required_skills:", processedSkills);
 
     db.query(sql, [
       title,
@@ -214,6 +286,11 @@ router.put("/:user_id/jobs/:job_id", (req, res) => {
       latitude || null,
       longitude || null,
       status || "active",
+      requirements,
+      processedSkills,
+      salary || null,
+      job_type || 'full-time',
+      job_radius || 10,
       job_id,
       employer_id
     ], (err, result) => {
@@ -224,6 +301,21 @@ router.put("/:user_id/jobs/:job_id", (req, res) => {
       if (result.affectedRows === 0) {
         return res.status(404).json({ error: "Job not found or not authorized" });
       }
+      // Emit job update event for real-time reloads
+      global.io.emit('jobUpdated', {
+        job_id: parseInt(job_id, 10),
+        employer_id,
+        title,
+        category,
+        location,
+        latitude,
+        longitude,
+        status,
+        salary,
+        job_type,
+        job_radius
+      });
+      console.log('Emitted jobUpdated event for job:', job_id);
       res.json({ message: "Job updated successfully" });
     });
   });
@@ -243,10 +335,15 @@ router.get("/:user_id/applications", (req, res) => {
     }
 
     const sql = `
-      SELECT a.application_id, a.job_id, j.job_title AS job_title, u.name AS applicant_name, u.email AS applicant_email, a.status, a.applied_at
+      SELECT a.application_id, a.job_id, a.applicant_id, j.job_title AS job_title, u.name AS applicant_name, u.email AS applicant_email, a.status, a.applied_at, ap.pwd_verification, ap.pwd_verification_status, ap.skills, ap.education, ap.disability_type, a.cover_letter, a.custom_resume, j.latitude AS job_latitude, j.longitude AS job_longitude, ul.latitude AS applicant_latitude, ul.longitude AS applicant_longitude, j.requirements, i.interview_date, i.interview_time, i.interview_type, i.notes AS interview_notes
       FROM applications a
       JOIN jobs j ON a.job_id = j.job_id
-      JOIN users u ON a.applicant_id = u.user_id
+      JOIN applicants ap ON a.applicant_id = ap.applicant_id
+      JOIN users u ON ap.user_id = u.user_id
+      LEFT JOIN user_locations ul ON u.user_id = ul.user_id
+      LEFT JOIN interviews i ON i.interview_id = (
+        SELECT MAX(interview_id) FROM interviews WHERE application_id = a.application_id
+      )
       WHERE j.employer_id = ?
       ORDER BY a.applied_at DESC
     `;
@@ -256,7 +353,68 @@ router.get("/:user_id/applications", (req, res) => {
         console.log("Employer applications query error:", err);
         return res.status(500).json({ error: "Database error", details: err.message });
       }
-      res.json(result);
+
+      console.log(`✓ Found ${result.length} applications for employer ${employer_id}`);
+
+      // Calculate match_score and distance for each application
+      const enrichedResult = result.map(app => {
+        let match_score = 0;
+        let distance = 0;
+
+        if (app.applicant_latitude && app.applicant_longitude && app.job_latitude && app.job_longitude) {
+          // Calculate distance using Haversine formula
+          const toRad = (deg) => (deg * Math.PI) / 180;
+          const R = 6371; // Earth's radius in km
+          const lat1 = parseFloat(app.applicant_latitude);
+          const lon1 = parseFloat(app.applicant_longitude);
+          const lat2 = parseFloat(app.job_latitude);
+          const lon2 = parseFloat(app.job_longitude);
+
+          const dLat = toRad(lat2 - lat1);
+          const dLon = toRad(lon2 - lon1);
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          distance = Math.round(R * c);
+
+          // Calculate skill match
+          const calculateSkillMatch = (jobSkillsStr, applicantSkills) => {
+            if (!jobSkillsStr) return 0;
+            const jobSkills = jobSkillsStr
+              .split(",")
+              .map((s) => s.trim().toLowerCase());
+            const applicantSkillsArray = applicantSkills
+              ? applicantSkills.split(",").map((s) => s.trim().toLowerCase())
+              : [];
+            const matches = jobSkills.filter((skill) =>
+              applicantSkillsArray.some(
+                (appSkill) =>
+                  appSkill.includes(skill) || skill.includes(appSkill)
+              )
+            ).length;
+            return matches > 0 ? (matches / jobSkills.length) * 100 : 0;
+          };
+
+          const skillMatchPercentage = calculateSkillMatch(
+            app.requirements,
+            app.skills
+          );
+          const isLocationMatch = distance <= 50;
+          match_score = Math.round(
+            skillMatchPercentage + (isLocationMatch ? 50 : 0)
+          );
+        }
+
+        return {
+          ...app,
+          match_score,
+          distance
+        };
+      });
+
+      res.json(enrichedResult);
     });
   });
 });
@@ -290,6 +448,72 @@ router.put("/:user_id/password", async (req, res) => {
     console.log("Password hashing error:", error);
     return res.status(500).json({ error: "Error updating password" });
   }
+});
+
+// Update PWD verification status for an applicant
+router.put("/:user_id/applicants/:applicant_id/pwd-verification", (req, res) => {
+  const { user_id, applicant_id } = req.params;
+  const { status } = req.body; // 'approved' or 'rejected'
+
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: "Status must be 'approved' or 'rejected'" });
+  }
+
+  getEmployerIdFromUser(user_id, (err, employer_id) => {
+    if (err) {
+      console.log("Employer lookup error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    if (!employer_id) {
+      return res.status(404).json({ error: "Employer not found" });
+    }
+
+    // Update PWD verification status
+    const updateSql = `UPDATE applicants SET pwd_verification_status = ? WHERE applicant_id = ?`;
+    
+    db.query(updateSql, [status, applicant_id], (err, result) => {
+      if (err) {
+        console.log("Update PWD verification status error:", err);
+        return res.status(500).json({ error: "Database error", details: err.message });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Applicant not found" });
+      }
+
+      res.json({ message: `PWD verification ${status} successfully` });
+    });
+  });
+});
+
+// Get notifications for employer
+router.get("/:user_id/notifications", (req, res) => {
+  const { user_id } = req.params;
+
+  getEmployerIdFromUser(user_id, (err, employer_id) => {
+    if (err) {
+      console.log("Employer notifications lookup error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    if (!employer_id) {
+      return res.status(404).json({ error: "Employer not found" });
+    }
+
+    const sql = `
+      SELECT notification_id as id, type, title, message, related_id, status, created_at as date
+      FROM notifications
+      WHERE employer_id = ?
+      ORDER BY created_at DESC
+    `;
+
+    db.query(sql, [employer_id], (err, result) => {
+      if (err) {
+        console.log("Employer notifications query error:", err);
+        return res.status(500).json({ error: "Database error", details: err.message });
+      }
+      res.json(result);
+    });
+  });
 });
 
 module.exports = router;

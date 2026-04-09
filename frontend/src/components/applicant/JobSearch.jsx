@@ -1,25 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './JobSearch.css';
+import { formatJobLocationText, isCoordinateLocation, getGoogleMapsLink } from '../../utils/locationUtils';
 
-function JobSearch({ jobs, filters, onFilterChange, onApply, onSaveJob, savedJobs }) {
-  const filteredJobs = jobs.filter(job => {
+function JobSearch({ jobs, filters, onFilterChange, onApply, onSaveJob, onViewJob, savedJobs, smartMatchedJobs = [] }) {
+  const [useSmartMatching, setUseSmartMatching] = useState(false);
+
+  console.log("JobSearch DEBUG:", {
+    totalJobs: jobs?.length,
+    smartMatchedJobs: smartMatchedJobs?.length,
+    useSmartMatching,
+    jobs: jobs?.slice(0, 3)
+  });
+
+  // Use smart matched jobs or all jobs depending on the toggle
+  const jobsToDisplay = useSmartMatching && smartMatchedJobs.length > 0 ? smartMatchedJobs : jobs;
+
+  const filteredJobs = jobsToDisplay.filter(job => {
     const matchesSearch = !filters.search || job.job_title.toLowerCase().includes(filters.search.toLowerCase()) || job.company?.toLowerCase().includes(filters.search.toLowerCase());
     const matchesLocation = !filters.location || job.location.toLowerCase().includes(filters.location.toLowerCase());
     const matchesType = !filters.type || job.job_type === filters.type;
-    const matchesExperience = !filters.experience || job.experience === filters.experience;
 
-    return matchesSearch && matchesLocation && matchesType && matchesExperience;
+    return matchesSearch && matchesLocation && matchesType;
   });
 
-  const isJobSaved = (jobId) => savedJobs.some(saved => saved.job_id === jobId);
+  const isJobSaved = (jobId) => savedJobs.some(saved => saved.job_id === jobId || saved.id === jobId);
 
   return (
     <div className="job-search">
-      <h2>🔍 Job Search</h2>
+      <h2 style={{ fontSize: "2rem", marginBottom: "25px" }}>Find Jobs</h2>
 
       {/* Search Filters */}
       <div className="filter-panel">
-        <h3>🔧 Search Filters</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+          <h3 style={{ margin: 0 }}>🔧 Search Filters</h3>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "500", margin: 0, cursor: "pointer", padding: "8px 12px", backgroundColor: useSmartMatching ? "#e3f2fd" : "#f5f5f5", borderRadius: "6px", border: useSmartMatching ? "2px solid #2196f3" : "2px solid #ddd" }}>
+            <input
+              type="checkbox"
+              checked={useSmartMatching}
+              onChange={e => setUseSmartMatching(e.target.checked)}
+              style={{ cursor: "pointer", width: "16px", height: "16px" }}
+            />
+            <span>Recommended Jobs</span>
+          </label>
+        </div>
+
+        {useSmartMatching && (
+          <div style={{ backgroundColor: "#e3f2fd", border: "1px solid #2196f3", borderRadius: "6px", padding: "10px 12px", marginBottom: "15px", display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#1565c0" }}>
+            <p style={{ margin: 0 }}>
+              Showing recommended jobs based on your skills and location.
+            </p>
+          </div>
+        )}
+
         <div className="filter-grid">
           <div>
             <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Search Keywords</label>
@@ -59,20 +91,6 @@ function JobSearch({ jobs, filters, onFilterChange, onApply, onSaveJob, savedJob
             </select>
           </div>
 
-          <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Experience Level</label>
-            <select
-              value={filters.experience}
-              onChange={e => onFilterChange("experience", e.target.value)}
-              style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd" }}
-            >
-              <option value="">All Levels</option>
-              <option value="entry">Entry Level</option>
-              <option value="mid">Mid Level</option>
-              <option value="senior">Senior Level</option>
-              <option value="executive">Executive</option>
-            </select>
-          </div>
         </div>
 
         <div className="clear-filter-row">
@@ -81,7 +99,6 @@ function JobSearch({ jobs, filters, onFilterChange, onApply, onSaveJob, savedJob
               onFilterChange("search", "");
               onFilterChange("location", "");
               onFilterChange("type", "");
-              onFilterChange("experience", "");
             }}
           >
             Clear Filters
@@ -89,12 +106,14 @@ function JobSearch({ jobs, filters, onFilterChange, onApply, onSaveJob, savedJob
         </div>
       </div>
 
-      {/* Results Count */}
-      <div className="result-count">
-        <p>
-          Found {filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''} matching your criteria
-        </p>
-      </div>
+      {/* Results Count - Only show when filtering or smart matching is active */}
+      {(useSmartMatching || filters.search || filters.location || filters.type) && (
+        <div className="result-count">
+          <p>
+            Found {filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''} matching your criteria
+          </p>
+        </div>
+      )}
 
       {/* Job Listings */}
       <div className="job-listing">
@@ -105,28 +124,45 @@ function JobSearch({ jobs, filters, onFilterChange, onApply, onSaveJob, savedJob
                 <h3>{job.job_title}</h3>
                 <p>{job.company || "Company"}</p>
                 <div className="tags">
-                  <span className="tag">
-                    📍 {job.location}
+                  <span
+                    onClick={() => window.open(getGoogleMapsLink(job.location), '_blank')}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      fontSize: "14px",
+                      color: "#007bff",
+                      cursor: "pointer",
+                      textDecoration: "underline"
+                    }}
+                  >
+                    {formatJobLocationText(job.location)}
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "14px" }}>
-                    💰 {job.salary || "N/A"}
+                    Salary: {job.salary || "N/A"}
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "14px" }}>
-                    🕒 {job.job_type || "Full-time"}
+                    Job Type: {job.job_type || "Full-time"}
                   </span>
                 </div>
               </div>
               <div className="action-row">
                 <button
                   className={`action-btn ${isJobSaved(job.job_id) ? 'saved' : 'save'}`}
-                  onClick={() => onSaveJob(job.job_id)}
-                  disabled={isJobSaved(job.job_id)}
+                  onClick={() => onSaveJob(job.job_id || job.id)}
+                  disabled={isJobSaved(job.job_id || job.id)}
                 >
-                  {isJobSaved(job.job_id) ? "💾 Saved" : "💾 Save"}
+                  {isJobSaved(job.job_id || job.id) ? "💾 Saved" : "💾 Save"}
+                </button>
+                <button
+                  className="action-btn view"
+                  onClick={() => onViewJob ? onViewJob(job) : null}
+                >
+                  👁️ View Job
                 </button>
                 <button
                   className="action-btn apply"
-                  onClick={() => onApply(job.job_id)}
+                  onClick={() => onApply(job)}
                 >
                   📤 Apply Now
                 </button>
@@ -183,6 +219,7 @@ function JobSearch({ jobs, filters, onFilterChange, onApply, onSaveJob, savedJob
             <p style={{ margin: 0, color: "#666" }}>Try adjusting your search filters to find more opportunities.</p>
           </div>
         )}
+
       </div>
     </div>
   );

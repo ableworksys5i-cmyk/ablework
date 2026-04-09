@@ -34,27 +34,51 @@ function LocationMarker({ position, setPosition }) {
 
 function JobModal({ jobForm, setJobForm, setShowJobModal, handleCreateJob }) {
   const [showMap, setShowMap] = useState(false);
-  const [mapPosition, setMapPosition] = useState([
-    parseFloat(jobForm.latitude) || 14.5995,
-    parseFloat(jobForm.longitude) || 120.9842
-  ]);
+  const [mapPosition, setMapPosition] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
 
   const handleChange = (field, value) => {
+    if (field === "required_skills") {
+      console.log("handleChange called for required_skills:", value);
+    }
     setJobForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Sync map changes to form
+  const reverseGeocode = async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`
+      );
+      const data = await response.json();
+      return data?.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    } catch (error) {
+      return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    }
+  };
+
   useEffect(() => {
-    if (mapPosition) {
+    const updateLocationFromCoords = async () => {
+      if (!mapPosition) return;
+
+      const [latitude, longitude] = mapPosition;
+      const locationName = await reverseGeocode(latitude, longitude);
+
       setJobForm(prev => ({
         ...prev,
-        latitude: mapPosition[0].toFixed(6),
-        longitude: mapPosition[1].toFixed(6),
-        location: `${mapPosition[0].toFixed(6)}, ${mapPosition[1].toFixed(6)}`
+        latitude: latitude.toFixed(6),
+        longitude: longitude.toFixed(6),
+        location: locationName
       }));
-    }
+    };
+
+    updateLocationFromCoords();
   }, [mapPosition, setJobForm]);
+
+  useEffect(() => {
+    if (showMap && !mapPosition && jobForm.latitude && jobForm.longitude) {
+      setMapPosition([parseFloat(jobForm.latitude), parseFloat(jobForm.longitude)]);
+    }
+  }, [showMap, mapPosition, jobForm.latitude, jobForm.longitude]);
 
   const handleUseCurrentLocation = () => {
     setGettingLocation(true);
@@ -78,8 +102,12 @@ function JobModal({ jobForm, setJobForm, setShowJobModal, handleCreateJob }) {
   };
 
   const handleSave = async () => {
-    if (!jobForm.title.trim() || !jobForm.description.trim()) {
-      alert("Please fill in Job Title and Description.");
+    if (!jobForm.title.trim() || !jobForm.description.trim() || !jobForm.requirements.trim()) {
+      alert("Please fill in Job Title, Description, and Requirements.");
+      return;
+    }
+    if (!jobForm.location || !jobForm.location.trim()) {
+      alert("Please specify a job location.");
       return;
     }
     await handleCreateJob();
@@ -133,7 +161,7 @@ function JobModal({ jobForm, setJobForm, setShowJobModal, handleCreateJob }) {
               value={jobForm.location}
               onChange={e => handleChange("location", e.target.value)}
               style={{ width: "100%", padding: "12px", border: "1px solid #ddd", borderRadius: "8px", marginBottom: "10px" }}
-              placeholder="City, Address or coordinates"
+              placeholder="City, address, or neighborhood"
             />
 
             <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
@@ -171,11 +199,11 @@ function JobModal({ jobForm, setJobForm, setShowJobModal, handleCreateJob }) {
             </div>
 
             {showMap && (
-              <div style={{ marginTop: "12px", border: "1px solid #ddd", borderRadius: "8px", overflow: "hidden" }}>
+              <div style={{ marginTop: "12px", border: "1px solid #ddd", borderRadius: "8px", overflow: "hidden", height: "400px" }}>
                 <MapContainer
-                  center={mapPosition}
+                  center={mapPosition || [14.5995, 120.9842]}
                   zoom={13}
-                  style={{ height: "340px", width: "100%" }}
+                  style={{ height: "100%", width: "100%" }}
                 >
                   <TileLayer
                     attribution='&copy; OpenStreetMap contributors'
@@ -230,17 +258,6 @@ function JobModal({ jobForm, setJobForm, setShowJobModal, handleCreateJob }) {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Status</label>
-              <select
-                value={jobForm.status || "active"}
-                onChange={e => handleChange("status", e.target.value)}
-                style={{ width: "100%", padding: "12px", border: "1px solid #ddd", borderRadius: "8px" }}
-              >
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-              </select>
-            </div>
           </div>
 
           {/* Requirements */}
@@ -250,44 +267,19 @@ function JobModal({ jobForm, setJobForm, setShowJobModal, handleCreateJob }) {
               value={jobForm.requirements}
               onChange={e => handleChange("requirements", e.target.value)}
               style={{ width: "100%", padding: "12px", border: "1px solid #ddd", borderRadius: "8px", minHeight: "90px", resize: "vertical" }}
-              placeholder="List required skills and qualifications..."
+              placeholder="Describe the role and qualifications required..."
             />
           </div>
 
-          {/* Latitude, Longitude, Radius */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "15px" }}>
-            <div>
-              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Latitude</label>
-              <input
-                type="number"
-                step="0.000001"
-                value={jobForm.latitude || ""}
-                onChange={e => handleChange("latitude", e.target.value)}
-                style={{ width: "100%", padding: "12px", border: "1px solid #ddd", borderRadius: "8px" }}
-                placeholder="Auto-filled"
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Longitude</label>
-              <input
-                type="number"
-                step="0.000001"
-                value={jobForm.longitude || ""}
-                onChange={e => handleChange("longitude", e.target.value)}
-                style={{ width: "100%", padding: "12px", border: "1px solid #ddd", borderRadius: "8px" }}
-                placeholder="Auto-filled"
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Search Radius (km)</label>
-              <input
-                type="number"
-                value={jobForm.job_radius || ""}
-                onChange={e => handleChange("job_radius", e.target.value)}
-                style={{ width: "100%", padding: "12px", border: "1px solid #ddd", borderRadius: "8px" }}
-                placeholder="10"
-              />
-            </div>
+          <div>
+            <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Required Skills</label>
+            <input
+              type="text"
+              value={jobForm.required_skills}
+              onChange={e => handleChange("required_skills", e.target.value)}
+              style={{ width: "100%", padding: "12px", border: "1px solid #ddd", borderRadius: "8px" }}
+              placeholder="Add skills separated by commas, e.g. React, SQL, communication"
+            />
           </div>
         </div>
 

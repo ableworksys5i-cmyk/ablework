@@ -12,6 +12,10 @@ function Notifications({ notifications, onMarkAsRead, onDeleteNotification }) {
       case 'application_viewed': return '👀';
       case 'offer': return '🎉';
       case 'rejection': return '💭';
+      case 'new_job': return '💼';
+      case 'job_saved': return '⭐';
+      case 'welcome': return '👋';
+      case 'tip': return '💡';
       default: return '🔔';
     }
   };
@@ -24,6 +28,10 @@ function Notifications({ notifications, onMarkAsRead, onDeleteNotification }) {
       case 'application_viewed': return '#17a2b8';
       case 'offer': return '#28a745';
       case 'rejection': return '#dc3545';
+      case 'new_job': return '#6f42c1';
+      case 'job_saved': return '#fd7e14';
+      case 'welcome': return '#20c997';
+      case 'tip': return '#ffc107';
       default: return '#6c757d';
     }
   };

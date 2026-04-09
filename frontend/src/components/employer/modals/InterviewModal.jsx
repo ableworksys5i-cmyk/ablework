@@ -65,11 +65,11 @@ const InterviewModal = ({
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Additional Notes:</label>
+            <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>What to Bring:</label>
             <textarea
               value={interviewForm.notes}
               onChange={e => setInterviewForm({...interviewForm, notes: e.target.value})}
-              placeholder="Add any notes about the interview..."
+              placeholder="Add any instructions or items to bring for the interview..."
               rows={3}
               style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: "4px", resize: "vertical" }}
             />

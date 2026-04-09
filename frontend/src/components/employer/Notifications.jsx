@@ -15,11 +15,14 @@ function Notifications({ notifications, onDeleteNotification }) {
           <div key={notification.id} style={{ border: "1px solid #ddd", borderRadius: "8px", padding: "15px", marginBottom: "10px", backgroundColor: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
               <div style={{ flex: 1 }}>
-                <p style={{ margin: "0 0 5px 0" }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: "16px" }}>
                   {notification.type === "application" && "📄 "}
                   {notification.type === "reminder" && "⏰ "}
-                  {notification.message}
-                </p>
+                  {notification.title || notification.message}
+                </h4>
+                {notification.title && notification.message !== notification.title && (
+                  <p style={{ margin: "0 0 5px 0", color: "#666" }}>{notification.message}</p>
+                )}
                 <small style={{ color: "#666" }}>{notification.date}</small>
               </div>
               <button

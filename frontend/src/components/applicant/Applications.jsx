@@ -4,18 +4,16 @@ import './Applications.css';
 function Applications({ applications, onWithdrawApplication, onViewApplicationDetails }) {
   const statusCounts = {
     pending: applications.filter(app => app.status === 'pending').length,
-    review: applications.filter(app => app.status === 'review').length,
+    shortlisted: applications.filter(app => app.status === 'shortlisted').length,
     interview: applications.filter(app => app.status === 'interview').length,
-    hired: applications.filter(app => app.status === 'hired').length,
     rejected: applications.filter(app => app.status === 'rejected').length
   };
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return '#ffc107';
-      case 'review': return '#17a2b8';
+      case 'shortlisted': return '#17a2b8';
       case 'interview': return '#007bff';
-      case 'hired': return '#28a745';
       case 'rejected': return '#dc3545';
       default: return '#6c757d';
     }
@@ -24,9 +22,8 @@ function Applications({ applications, onWithdrawApplication, onViewApplicationDe
   const getStatusIcon = (status) => {
     switch (status) {
       case 'pending': return '⏳';
-      case 'review': return '👀';
+      case 'shortlisted': return '⭐';
       case 'interview': return '📅';
-      case 'hired': return '✅';
       case 'rejected': return '❌';
       default: return '❓';
     }
@@ -127,10 +124,13 @@ function Applications({ applications, onWithdrawApplication, onViewApplicationDe
                 <div style={{ border: "1px solid #007bff", borderRadius: "8px", padding: "15px", backgroundColor: "#e7f3ff", marginBottom: "15px" }}>
                   <h4 style={{ margin: "0 0 10px 0", color: "#007bff" }}>📅 Interview Scheduled</h4>
                   <p style={{ margin: "0 0 5px 0" }}><strong>Date:</strong> {new Date(application.interviewDetails.date).toLocaleDateString()}</p>
-                  <p style={{ margin: "0 0 5px 0" }}><strong>Time:</strong> {application.interviewDetails.time}</p>
+                  <p style={{ margin: "0 0 5px 0" }}><strong>Time:</strong> {application.interviewDetails.time ? new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(`2000-01-01T${application.interviewDetails.time}`)) : "TBD"}</p>
                   <p style={{ margin: "0 0 5px 0" }}><strong>Type:</strong> {application.interviewDetails.type}</p>
                   {application.interviewDetails.location && (
                     <p style={{ margin: 0 }}><strong>Location:</strong> {application.interviewDetails.location}</p>
+                  )}
+                  {application.interviewDetails.notes && (
+                    <p style={{ margin: "10px 0 0 0", color: "#0c5460" }}><strong>What to bring:</strong> {application.interviewDetails.notes}</p>
                   )}
                 </div>
               )}

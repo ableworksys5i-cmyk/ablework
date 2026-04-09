@@ -9,6 +9,8 @@ function CompanyProfile({
   onLogoFileChange,
   onUploadLogo
 }) {
+  const logoUrl = employer?.logo ? `${API_URL}/uploads/logos/${employer.logo}` : null;
+
   return (
     <div>
       <h2 style={{ fontSize: "2rem", marginBottom: "20px" }}>🏢 Company Profile Management</h2>
@@ -33,6 +35,10 @@ function CompanyProfile({
             <div>
               <label><b>Address:</b></label>
               <p>{employer.company_address}</p>
+            </div>
+            <div>
+              <label><b>Website:</b></label>
+              <p>{employer.company_website ? <a href={employer.company_website.startsWith('http') ? employer.company_website : `https://${employer.company_website}`} target="_blank" rel="noreferrer">{employer.company_website}</a> : "Not provided"}</p>
             </div>
             <div>
               <label><b>Contact Number:</b></label>
@@ -64,9 +70,9 @@ function CompanyProfile({
               overflow: "hidden"
             }}>
               {logoPreview ? (
-                <img src={logoPreview} alt="Logo Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "cover" }} />
-              ) : employer.logo ? (
-                <img src={`${API_URL}/uploads/logos/${employer.logo}`} alt="Company Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "cover" }} />
+                <img key={logoPreview} src={logoPreview} alt="Logo Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "cover" }} />
+              ) : logoUrl ? (
+                <img key={employer.logo} src={logoUrl} alt="Company Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
               ) : (
                 <span style={{ fontSize: "2rem" }}>🏢</span>
               )}

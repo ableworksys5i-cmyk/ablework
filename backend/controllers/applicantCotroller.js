@@ -5,7 +5,7 @@ exports.getStats = (req, res) => {
 
   // First get the applicant and user data to calculate completion
   const applicantSql = `
-    SELECT users.name, users.email, applicants.disability_type, applicants.skills, applicants.education, applicants.preferred_job, applicants.pwd_verification, applicants.latitude, applicants.longitude
+    SELECT users.name, users.email, applicants.disability_type, applicants.skills, applicants.education, applicants.preferred_job, applicants.pwd_verification
     FROM applicants
     JOIN users ON users.user_id = applicants.user_id
     WHERE applicants.user_id = ?

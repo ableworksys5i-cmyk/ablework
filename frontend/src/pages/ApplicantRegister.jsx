@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { registerUser } from "../api/api";
 
 function ApplicantRegister() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     name: "",
     username: "",
@@ -9,48 +11,38 @@ function ApplicantRegister() {
     password: "",
     disability_type: "",
     education: "",
+    preferred_job: "",
     skills: "",
     location: "",
     latitude: null,
     longitude: null,
-    pwd_verification_file: null
+    verification_file: null
   });
 
   const [loading, setLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState("");
+  const [error, setError] = useState("");
 
-  // Auto-detect location on component mount
+  // Capture location on component mount
   useEffect(() => {
-    detectLocation();
-  }, []);
-
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation not supported");
-      return;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          console.log("📍 Location captured:", latitude, longitude);
+          setForm(prev => ({
+            ...prev,
+            latitude: latitude,
+            longitude: longitude,
+            location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+          }));
+        },
+        (error) => {
+          console.log("⚠️ Location access denied or error:", error);
+          // Continue without location - not blocking registration
+        }
+      );
     }
-
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setForm(prev => ({
-          ...prev,
-          latitude,
-          longitude,
-          location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
-        }));
-        setLocationError("");
-        setLocationLoading(false);
-      },
-      (error) => {
-        console.error("Location error:", error);
-        setLocationError("Please enable location or enter manually");
-        setLocationLoading(false);
-      }
-    );
-  };
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,47 +50,50 @@ function ApplicantRegister() {
       ...prev,
       [name]: value
     }));
+    // Clear error when user starts typing
+    if (error) {
+      setError("");
+    }
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type (PDF, images only)
       const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/gif"];
       if (!allowedTypes.includes(file.type)) {
         alert("Please upload a PDF or image file");
         return;
       }
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert("File size must be less than 5MB");
         return;
       }
       setForm(prev => ({
         ...prev,
-        pwd_verification_file: file
+        verification_file: file
       }));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(""); // Clear previous errors
 
-    // Validate required fields
     if (!form.name || !form.username || !form.email || !form.password || !form.disability_type || !form.education) {
-      alert("Please fill in all required fields");
+      setError("Please fill in all required fields");
       return;
     }
 
-    if (!form.pwd_verification_file) {
-      alert("PWD Verification document is required");
+    if (!form.verification_file) {
+      setError("PWD verification document is required");
       return;
     }
-
-    setLoading(true);
 
     try {
-      // Create FormData for file upload
+      setLoading(true);
+      console.log("Sending registration request...");
+      console.log("Form data:", form);
+
       const formData = new FormData();
       formData.append("name", form.name);
       formData.append("username", form.username);
@@ -106,41 +101,45 @@ function ApplicantRegister() {
       formData.append("password", form.password);
       formData.append("disability_type", form.disability_type);
       formData.append("education", form.education);
+      formData.append("preferred_job", form.preferred_job);
       formData.append("skills", form.skills);
       formData.append("location", form.location);
-      formData.append("latitude", form.latitude);
-      formData.append("longitude", form.longitude);
-      formData.append("pwd_verification_file", form.pwd_verification_file);
+      if (form.latitude !== null && form.latitude !== undefined) {
+        formData.append("latitude", form.latitude);
+      }
+      if (form.longitude !== null && form.longitude !== undefined) {
+        formData.append("longitude", form.longitude);
+      }
+      formData.append("verification_file", form.verification_file);
       formData.append("role", "applicant");
 
-      // Upload via fetch with FormData
+      console.log("FormData created");
+
       const response = await fetch("http://localhost:3000/api/auth/register", {
         method: "POST",
         body: formData
       });
 
-      const result = await response.json();
-      alert(result.message);
+      console.log("Response received:", response.status);
 
-      if (result.success) {
-        // Reset form
-        setForm({
-          name: "",
-          username: "",
-          email: "",
-          password: "",
-          disability_type: "",
-          education: "",
-          skills: "",
-          location: "",
-          latitude: null,
-          longitude: null,
-          pwd_verification_file: null
-        });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error (${response.status}): ${errorText}`);
       }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        setError(result.message || "Registration failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to email verification page
+      navigate(`/verify-email?user_id=${result.user_id}&email=${encodeURIComponent(result.email)}`);
     } catch (error) {
       console.error("Registration error:", error);
-      alert("Registration failed. Please try again.");
+      setError("Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -152,8 +151,13 @@ function ApplicantRegister() {
         <h2 style={styles.heading}>Applicant Registration</h2>
         <p style={styles.subtitle}>Join ABLEWORK and find opportunities tailored for you</p>
 
+        {error && (
+          <div style={{...styles.errorContainer, marginBottom: "20px"}}>
+            <p style={{margin: "0", color: "#d32f2f", fontWeight: "bold"}}>❌ {error}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} style={styles.form}>
-          {/* Full Name */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Full Name *</label>
             <input
@@ -166,7 +170,6 @@ function ApplicantRegister() {
             />
           </div>
 
-          {/* Email */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Email *</label>
             <input
@@ -180,7 +183,6 @@ function ApplicantRegister() {
             />
           </div>
 
-          {/* Username */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Username *</label>
             <input
@@ -193,7 +195,6 @@ function ApplicantRegister() {
             />
           </div>
 
-          {/* Password */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Password *</label>
             <input
@@ -207,99 +208,91 @@ function ApplicantRegister() {
             />
           </div>
 
-          {/* Disability Type */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Type of Disability *</label>
-            <select name="disability_type" value={form.disability_type} onChange={handleChange} style={styles.input} required>
-              <option value="">Select Disability Type</option>
+            <select
+              name="disability_type"
+              value={form.disability_type}
+              onChange={handleChange}
+              style={styles.select}
+              required
+            >
+              <option value="">Select disability type</option>
+              <option value="physical">Physical Disability</option>
               <option value="visual">Visual Impairment</option>
               <option value="hearing">Hearing Impairment</option>
-              <option value="mobility">Mobility Disability</option>
-              <option value="speech">Speech Disability</option>
-              <option value="learning">Learning Disability</option>
+              <option value="cognitive">Cognitive Disability</option>
               <option value="other">Other</option>
             </select>
           </div>
 
-          {/* Education */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Education Level *</label>
-            <select name="education" value={form.education} onChange={handleChange} style={styles.input} required>
-              <option value="">Select Education Level</option>
-              <option value="High School">High School</option>
-              <option value="Senior High School">Senior High School</option>
-              <option value="Vocational">Vocational</option>
-              <option value="College Undergraduate">College Undergraduate</option>
-              <option value="College Graduate">College Graduate</option>
-              <option value="Graduate School">Graduate School</option>
+            <select
+              name="education"
+              value={form.education}
+              onChange={handleChange}
+              style={styles.select}
+              required
+            >
+              <option value="">Select education level</option>
+              <option value="high_school">High School</option>
+              <option value="associate">Associate Degree</option>
+              <option value="bachelor">Bachelor's Degree</option>
+              <option value="master">Master's Degree</option>
+              <option value="phd">PhD</option>
+              <option value="other">Other</option>
             </select>
           </div>
 
-          {/* Skills (Optional) */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>Basic Skills (Optional)</label>
+            <label style={styles.label}>Preferred Job</label>
             <input
-              name="skills"
-              placeholder="e.g., Data Entry, Customer Service, Programming"
-              value={form.skills}
+              name="preferred_job"
+              placeholder="What type of job are you looking for?"
+              value={form.preferred_job}
               onChange={handleChange}
               style={styles.input}
             />
           </div>
 
-          {/* Location */}
           <div style={styles.formGroup}>
-            <label style={styles.label}>
-              📍 Location
-              {locationLoading && " (Detecting...)"}
-              {locationError && <span style={{ color: "#d32f2f" }}> - {locationError}</span>}
-            </label>
-            <div style={styles.locationInputGroup}>
-              <input
-                name="location"
-                placeholder="Auto-detected or enter manually"
-                value={form.location}
-                onChange={handleChange}
-                style={{ ...styles.input, flex: 1 }}
-              />
-              <button
-                type="button"
-                onClick={detectLocation}
-                style={styles.locationButton}
-                disabled={locationLoading}
-              >
-                {locationLoading ? "Detecting..." : "📍"}
-              </button>
-            </div>
+            <label style={styles.label}>Skills</label>
+            <textarea
+              name="skills"
+              placeholder="List your skills (optional)"
+              value={form.skills}
+              onChange={handleChange}
+              style={styles.textarea}
+              rows="3"
+            />
           </div>
 
-          {/* PWD Verification Upload */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>PWD Verification Document ✅ *</label>
-            <p style={styles.hint}>Upload a PDF or image (PNG, JPG) proving your disability status. Max 5MB.</p>
-            <div style={styles.fileUploadArea}>
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.gif"
-                onChange={handleFileChange}
-                style={styles.fileInput}
-              />
-              <p style={styles.fileName}>
-                {form.pwd_verification_file ? `✓ ${form.pwd_verification_file.name}` : "No file selected"}
-              </p>
-            </div>
+          {/* Location Status */}
+          <div style={{...styles.formGroup, backgroundColor: "#e8f4f8", padding: "10px", borderRadius: "4px", fontSize: "14px"}}>
+            <label style={styles.label}>📍 Location Status</label>
+            {form.latitude && form.longitude ? (
+              <p style={{margin: "0", color: "#28a745", fontWeight: "bold"}}>✓ Location captured: {form.location}</p>
+            ) : (
+              <p style={{margin: "0", color: "#ffc107", fontWeight: "bold"}}>⚠️ Please allow location access for better job recommendations</p>
+            )}
           </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            style={{
-              ...styles.button,
-              opacity: loading ? 0.6 : 1,
-              cursor: loading ? "not-allowed" : "pointer"
-            }}
-            disabled={loading}
-          >
+          <div style={styles.formGroup}>
+            <label style={styles.label}>PWD Verification Document *</label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.gif"
+              onChange={handleFileChange}
+              style={styles.fileInput}
+              required
+            />
+            <small style={styles.fileHelp}>
+              Upload a PDF or image of your PWD ID or medical certificate (max 5MB)
+            </small>
+          </div>
+
+          <button type="submit" style={styles.button} disabled={loading}>
             {loading ? "Registering..." : "Register"}
           </button>
         </form>
@@ -334,69 +327,118 @@ const styles = {
   subtitle: {
     textAlign: "center",
     color: "#666",
-    marginBottom: "30px",
-    fontSize: "0.95rem"
+    marginBottom: "30px"
+  },
+  errorContainer: {
+    backgroundColor: "#ffebee",
+    border: "1px solid #ffcdd2",
+    borderRadius: "4px",
+    padding: "12px",
+    marginBottom: "15px"
   },
   form: {
     display: "flex",
-    flexDirection: "column",
-    gap: "20px"
+    flexDirection: "column"
   },
   formGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px"
+    marginBottom: "20px"
   },
   label: {
+    display: "block",
+    marginBottom: "5px",
     fontWeight: "bold",
-    color: "#333",
-    fontSize: "0.95rem"
+    color: "#333"
   },
   input: {
+    width: "100%",
     padding: "12px",
     border: "1px solid #ddd",
     borderRadius: "4px",
     fontSize: "1rem",
-    fontFamily: "Arial, sans-serif",
-    transition: "border-color 0.2s"
+    boxSizing: "border-box"
   },
-  hint: {
-    fontSize: "0.85rem",
-    color: "#666",
-    margin: "0"
+  select: {
+    width: "100%",
+    padding: "12px",
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    fontSize: "1rem",
+    boxSizing: "border-box"
   },
-  locationInputGroup: {
+  textarea: {
+    width: "100%",
+    padding: "12px",
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    fontSize: "1rem",
+    boxSizing: "border-box",
+    resize: "vertical"
+  },
+  locationMethodContainer: {
     display: "flex",
-    gap: "10px",
-    alignItems: "center"
+    gap: "20px",
+    marginBottom: "15px"
   },
-  locationButton: {
-    padding: "12px 16px",
+  radioLabel: {
+    display: "flex",
+    alignItems: "center",
+    cursor: "pointer",
+    fontWeight: "normal"
+  },
+  radio: {
+    marginRight: "8px"
+  },
+  locationGroup: {
+    border: "1px solid #e0e0e0",
+    borderRadius: "4px",
+    padding: "15px",
+    backgroundColor: "#fafafa"
+  },
+  detectButton: {
+    padding: "10px 15px",
     backgroundColor: "#2196F3",
     color: "white",
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
-    fontSize: "1rem",
-    fontWeight: "bold"
+    fontSize: "0.9rem",
+    marginBottom: "10px"
   },
-  fileUploadArea: {
-    border: "2px dashed #ddd",
+  manualLocationGroup: {
+    border: "1px solid #e0e0e0",
     borderRadius: "4px",
-    padding: "20px",
-    textAlign: "center",
-    backgroundColor: "#f9f9f9"
+    padding: "15px",
+    backgroundColor: "#fafafa"
+  },
+  coordInputs: {
+    display: "flex",
+    gap: "10px",
+    marginBottom: "10px"
+  },
+  coordInput: {
+    flex: 1,
+    padding: "10px",
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    fontSize: "0.9rem"
+  },
+  statusMessage: {
+    marginTop: "10px",
+    fontSize: "0.9rem"
   },
   fileInput: {
     width: "100%",
     padding: "10px",
-    cursor: "pointer"
+    border: "1px solid #ddd",
+    borderRadius: "4px",
+    fontSize: "1rem",
+    boxSizing: "border-box"
   },
-  fileName: {
-    marginTop: "10px",
-    color: "#4CAF50",
-    fontWeight: "bold",
-    fontSize: "0.9rem"
+  fileHelp: {
+    display: "block",
+    marginTop: "5px",
+    color: "#666",
+    fontSize: "0.8rem"
   },
   button: {
     padding: "14px",

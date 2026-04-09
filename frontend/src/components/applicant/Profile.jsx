@@ -4,12 +4,12 @@ import './Profile.css';
 function Profile({ user, onUpdateProfile, onUploadResume }) {
   return (
     <div className="profile-root">
-      <h2>👤 My Profile</h2>
+      <h2>My Profile</h2>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "30px" }}>
         {/* Personal Information */}
         <div style={{ border: "2px solid #333", borderRadius: "12px", padding: "20px", backgroundColor: "#f9f9f9" }}>
-          <h3>📋 Personal Information</h3>
+          <h3>Personal Information</h3>
           <div style={{ display: "grid", gap: "15px", marginTop: "15px" }}>
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Full Name</label>
@@ -56,7 +56,7 @@ function Profile({ user, onUpdateProfile, onUploadResume }) {
 
         {/* Professional Information */}
         <div style={{ border: "2px solid #333", borderRadius: "12px", padding: "20px", backgroundColor: "#f9f9f9" }}>
-          <h3>💼 Professional Information</h3>
+          <h3>Professional Information</h3>
           <div style={{ display: "grid", gap: "15px", marginTop: "15px" }}>
             <div>
               <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Current Position</label>

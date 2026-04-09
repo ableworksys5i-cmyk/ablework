@@ -30,6 +30,66 @@ body: JSON.stringify(data)
 return response.json();
 };
 
+// Verify Email
+export const verifyEmail = async (data) => {
+  const response = await fetch(`${API_URL}/api/auth/verify-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+  return response.json();
+};
+
+// Resend Verification Code
+export const resendVerificationCode = async (data) => {
+  const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+  return response.json();
+};
+
+// Forgot Password
+export const forgotPassword = async (data) => {
+  const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+  return response.json();
+};
+
+// Verify Reset Code
+export const verifyResetCode = async (data) => {
+  const response = await fetch(`${API_URL}/api/auth/verify-reset-code`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+  return response.json();
+};
+
+// Reset Password
+export const resetPassword = async (data) => {
+  const response = await fetch(`${API_URL}/api/auth/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+  return response.json();
+};
+
 //API get applicant details
 export const getApplicant = async (user_id) => {
 
@@ -37,6 +97,45 @@ const response = await fetch(`${API_URL}/api/applicant/${user_id}`);
 
 return response.json();
 
+};
+
+export const uploadProfilePicture = async (user_id, profilePicFile) => {
+  const formData = new FormData();
+  formData.append("profile_picture", profilePicFile);
+  
+  console.log("🌐 API: Preparing to upload profile picture for user", user_id);
+  console.log("📦 FormData contents:", formData.get("profile_picture"));
+  console.log("🔗 API URL:", `${API_URL}/api/applicant/${user_id}/profile-picture`);
+  
+  try {
+    const response = await fetch(`${API_URL}/api/applicant/${user_id}/profile-picture`, {
+      method: "POST",
+      body: formData
+    });
+    
+    console.log("📡 API: Fetch response status:", response.status);
+    console.log("📡 API: Fetch response ok:", response.ok);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ API: Raw error response:", errorText);
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch (e) {
+        error = { message: errorText };
+      }
+      console.error("❌ API: Parsed error response:", error);
+      throw new Error(error.message || "Upload failed");
+    }
+    
+    const result = await response.json();
+    console.log("✅ API: Upload successful, result:", result);
+    return result;
+  } catch (fetchError) {
+    console.error("💥 API: Fetch error:", fetchError);
+    throw fetchError;
+  }
 };
 
 export const getStats = async (user_id) => {
@@ -59,8 +158,17 @@ export const getJobsByCategory = async (category) => {
   return response.json();
 };
 
-export const getNearbyJobs = async (latitude, longitude) => {
-  const response = await fetch(`${API_URL}/api/jobs/nearby?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`);
+export const getNearbyJobs = async (user_id, latitude, longitude) => {
+  let query = "";
+  if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null) {
+    query = `?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`;
+  } else if (user_id) {
+    query = `?user_id=${encodeURIComponent(user_id)}`;
+  } else {
+    throw new Error("API get nearby jobs requires user_id or latitude/longitude");
+  }
+
+  const response = await fetch(`${API_URL}/api/jobs/nearby${query}`);
   if (!response.ok) {
     const errorBody = await response.text();
     throw new Error(`API get nearby jobs failed: ${response.status} ${errorBody}`);
@@ -68,8 +176,31 @@ export const getNearbyJobs = async (latitude, longitude) => {
   return response.json();
 };
 
+export const getSmartMatchedJobs = async (user_id) => {
+  const response = await fetch(`${API_URL}/api/jobs/smart-matched?user_id=${encodeURIComponent(user_id)}`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`API get smart matched jobs failed: ${response.status} ${errorBody}`);
+  }
+  return response.json();
+};
+
 export const getApplications = async (user_id) => {
   const response = await fetch(`${API_URL}/api/applications/${user_id}`);
+  return response.json();
+};
+
+export const uploadApplicationResume = async (resumeFile) => {
+  const formData = new FormData();
+  formData.append("resume", resumeFile);
+  const response = await fetch(`${API_URL}/api/applications/upload-resume`, {
+    method: "POST",
+    body: formData
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`API upload application resume failed: ${response.status} ${errorBody}`);
+  }
   return response.json();
 };
 
@@ -142,6 +273,27 @@ export const getEmployerApplications = async (user_id) => {
   return response.json();
 };
 
+export const getEmployerNotifications = async (user_id) => {
+  const response = await fetch(`${API_URL}/api/employer/${user_id}/notifications`);
+  return response.json();
+};
+
+export const getApplicantNotifications = async (user_id) => {
+  const response = await fetch(`${API_URL}/api/applicant/${user_id}/notifications`);
+  return response.json();
+};
+
+export const updatePwdVerificationStatus = async (user_id, applicant_id, status) => {
+  const response = await fetch(`${API_URL}/api/employer/${user_id}/applicants/${applicant_id}/pwd-verification`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ status })
+  });
+  return response.json();
+};
+
 export const updateEmployer = async (user_id, data) => {
   const response = await fetch(`${API_URL}/api/employer/${user_id}`, {
     method: "PUT",
@@ -160,20 +312,30 @@ export const updateEmployer = async (user_id, data) => {
 };
 
 export const uploadEmployerLogo = async (user_id, file) => {
+  console.log("API uploadEmployerLogo called with:", { user_id, file });
+
   const formData = new FormData();
   formData.append("logo_file", file);
+
+  console.log("FormData created, making request to:", `${API_URL}/api/employer/${user_id}/logo`);
 
   const response = await fetch(`${API_URL}/api/employer/${user_id}/logo`, {
     method: "POST",
     body: formData
   });
 
+  console.log("Response status:", response.status);
+  console.log("Response ok:", response.ok);
+
   if (!response.ok) {
     const errorBody = await response.text();
+    console.error("Error response body:", errorBody);
     throw new Error(`API upload logo failed: ${response.status} ${errorBody}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  console.log("Success response:", result);
+  return result;
 };
 
 export const updateApplicant = async (user_id, data) => {
@@ -229,8 +391,8 @@ export const updateApplicationStatus = async (applicationId, status) => {
 };
 
 // Save a job for applicant
-export const saveJob = async (user_id, job_id) => {
-  const response = await fetch(`${API_URL}/api/applicant/${user_id}/saved-jobs/${job_id}`, {
+export const saveJob = async (applicant_id, job_id) => {
+  const response = await fetch(`${API_URL}/api/applicant/saved-jobs/${applicant_id}/${job_id}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -246,8 +408,8 @@ export const saveJob = async (user_id, job_id) => {
 };
 
 // Unsave a job for applicant
-export const unsaveJob = async (user_id, job_id) => {
-  const response = await fetch(`${API_URL}/api/applicant/${user_id}/saved-jobs/${job_id}`, {
+export const unsaveJob = async (applicant_id, job_id) => {
+  const response = await fetch(`${API_URL}/api/applicant/saved-jobs/${applicant_id}/${job_id}`, {
     method: "DELETE"
   });
 
@@ -260,8 +422,8 @@ export const unsaveJob = async (user_id, job_id) => {
 };
 
 // Get saved jobs for applicant
-export const getSavedJobs = async (user_id) => {
-  const response = await fetch(`${API_URL}/api/applicant/${user_id}/saved-jobs`);
+export const getSavedJobs = async (applicant_id) => {
+  const response = await fetch(`${API_URL}/api/applicant/saved-jobs/${applicant_id}`);
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -328,6 +490,23 @@ export const sendJobOffer = async (applicationId, data) => {
 // Update employer password
 export const updateEmployerPassword = async (user_id, data) => {
   const response = await fetch(`${API_URL}/api/employer/${user_id}/password`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(data)
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`API update password failed: ${response.status} ${errorBody}`);
+  }
+
+  return response.json();
+};
+
+export const updateApplicantPassword = async (user_id, data) => {
+  const response = await fetch(`${API_URL}/api/applicant/${user_id}/password`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json"

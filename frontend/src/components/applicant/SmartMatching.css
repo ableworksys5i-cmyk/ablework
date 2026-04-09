@@ -1,0 +1,112 @@
+.smart-matching {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.smart-matching h2 {
+  color: #0d47a1;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.smart-matching-job-card {
+  border: 2px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.smart-matching-job-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #0d47a1;
+}
+
+.match-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  margin-right: 10px;
+}
+
+.match-badge-excellent {
+  background-color: #27ae60;
+}
+
+.match-badge-good {
+  background-color: #2980b9;
+}
+
+.match-badge-decent {
+  background-color: #f39c12;
+}
+
+.match-badge-fair {
+  background-color: #e74c3c;
+}
+
+.skill-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.skill-tag-matched {
+  background-color: #27ae60;
+  color: white;
+  font-weight: bold;
+}
+
+.skill-tag-unmatched {
+  background-color: #e9ecef;
+  color: #333;
+}
+
+.job-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.job-actions button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.job-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+@media (max-width: 768px) {
+  .smart-matching {
+    padding: 15px;
+  }
+
+  .smart-matching h2 {
+    font-size: 1.4rem;
+  }
+
+  .job-actions {
+    flex-direction: column;
+  }
+
+  .job-actions button {
+    width: 100%;
+  }
+}

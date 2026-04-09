@@ -1,0 +1,1 @@
+ALTER TABLE applicants ADD COLUMN profile_picture VARCHAR(255) NULL;

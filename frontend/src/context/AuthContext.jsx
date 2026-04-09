@@ -17,8 +17,15 @@ export function AuthProvider({ children }) {
     else sessionStorage.removeItem("user");
   }, [user]);
 
+  const logout = () => {
+    setUser(null);
+    sessionStorage.removeItem("user");
+    sessionStorage.removeItem("applicantActiveTab");
+    sessionStorage.removeItem("employerActiveTab");
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setUser }}>
+    <AuthContext.Provider value={{ user, setUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

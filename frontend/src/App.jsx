@@ -8,6 +8,10 @@ import HomePage from "./pages/HomePage";
 import ChooseRole from "./pages/ChooseRole";
 import ApplicantRegister from "./pages/ApplicantRegister";
 import EmployerRegister from "./pages/EmployerRegister";
+import VerifyEmail from "./pages/VerifyEmail";
+import ForgotPassword from "./pages/ForgotPassword";
+import VerifyResetCode from "./pages/VerifyResetCode";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
 
@@ -24,6 +28,10 @@ return (
 <Route path="/chooserole" element={<ChooseRole />} />
 <Route path="/register/applicant" element={<ApplicantRegister />} />
 <Route path="/register/employer" element={<EmployerRegister />} />
+<Route path="/verify-email" element={<VerifyEmail />} />
+<Route path="/forgot-password" element={<ForgotPassword />} />
+<Route path="/verify-reset-code" element={<VerifyResetCode />} />
+<Route path="/reset-password" element={<ResetPassword />} />
 
 </Routes>
 

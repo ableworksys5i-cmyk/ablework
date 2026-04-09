@@ -24,6 +24,13 @@ function Login() {
       const result = await loginUser(form);
 
       if (result.success) {
+        // Check if email is verified
+        if (!result.is_verified) {
+          alert("Please verify your email first. We've sent a verification code.");
+          navigate(`/verify-email?user_id=${result.user_id}&email=${encodeURIComponent(result.email)}`);
+          return;
+        }
+
         setUser(result);
         if (result.role === "applicant") {
           navigate("/applicant-dashboard");
@@ -122,7 +129,7 @@ function Login() {
 
         <div style={styles.linkSection}>
           <span style={styles.link} onClick={() => navigate("/chooserole")}>Create account</span>
-          <span style={styles.link} onClick={() => alert("Feature coming soon")}>Forgot password?</span>
+          <span style={styles.link} onClick={() => navigate("/forgot-password")}>Forgot password?</span>
         </div>
       </div>
     </div>

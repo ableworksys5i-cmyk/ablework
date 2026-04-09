@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "./EmployerDashboard.css";
 import { useAuth } from "../context/AuthContext";
 import {
   getEmployer,
@@ -6,6 +7,8 @@ import {
   createEmployerJob,
   updateEmployerJob,
   getEmployerApplications,
+  getEmployerNotifications,
+  updatePwdVerificationStatus,
   updateEmployer,
   uploadEmployerLogo,
   updateApplicationStatus,
@@ -20,8 +23,6 @@ import DashboardOverview from "../components/employer/DashboardOverview";
 import CompanyProfile from "../components/employer/CompanyProfile";
 import JobPostings from "../components/employer/JobPostings";
 import ApplicantsManagement from "../components/employer/ApplicantsManagement";
-import SmartMatching from "../components/employer/SmartMatching";
-import Analytics from "../components/employer/Analytics";
 import Notifications from "../components/employer/Notifications";
 import Settings from "../components/employer/Settings";
 
@@ -30,19 +31,22 @@ import JobModal from "../components/employer/modals/JobModal";
 import ApplicantModal from "../components/employer/modals/ApplicantModal";
 import InterviewModal from "../components/employer/modals/InterviewModal";
 import OfferModal from "../components/employer/modals/OfferModal";
-import AnalyticsModal from "../components/employer/modals/AnalyticsModal";
+import { io } from 'socket.io-client';
 
 function EmployerDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const [employer, setEmployer] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [applicants, setApplicants] = useState([]);
-  const [analytics, setAnalytics] = useState({});
   const [loading, setLoading] = useState(true);
+  const [socket, setSocket] = useState(null);
 
   // New state for enhanced features
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = sessionStorage.getItem("employerActiveTab");
+    return savedTab || "dashboard";
+  });
   const [showJobModal, setShowJobModal] = useState(false);
   const [showApplicantModal, setShowApplicantModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
@@ -55,15 +59,20 @@ function EmployerDashboard() {
     confirmPassword: ""
   });
 
+  // Profile popup and tab state
+  const [showProfilePopup, setShowProfilePopup] = useState(false);
+
   // Profile editing state
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: "",
     email: "",
     username: "",
     company_name: "",
     company_address: "",
-    contact_number: ""
+    contact_number: "",
+    company_website: ""
   });
 
   // Interview scheduling state
@@ -93,6 +102,7 @@ function EmployerDashboard() {
     title: "",
     description: "",
     requirements: "",
+    required_skills: "",
     salary: "",
     location: "",
     latitude: "",
@@ -110,13 +120,59 @@ function EmployerDashboard() {
     loadData();
   }, [user]);
 
+  useEffect(() => {
+    sessionStorage.setItem("employerActiveTab", activeTab);
+  }, [activeTab]);
+
+  // Socket.IO connection for real-time updates
+  useEffect(() => {
+    const socketUrl = 'http://localhost:3000';
+    const newSocket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
+      autoConnect: true,
+    });
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => console.log('Employer: Connected to server', newSocket.id));
+    newSocket.on('connect_error', (err) => console.error('Employer socket connect_error:', err));
+    newSocket.on('disconnect', (reason) => console.log('Employer: Disconnected from server', reason));
+
+    newSocket.on('applicationSubmitted', (data) => {
+      console.log('New application submitted:', data);
+      fetchApplications();
+    });
+
+    newSocket.on('applicationStatusUpdated', (data) => {
+      console.log('Application status updated:', data);
+      fetchApplications();
+    });
+
+    newSocket.on('jobUpdated', (data) => {
+      console.log('Job updated:', data);
+      // If employer is viewing their own jobs, refresh job list
+      loadData();
+    });
+
+    const pollId = setInterval(() => {
+      console.log('Employer dashboard polling for updates');
+      loadData();
+      fetchApplications();
+    }, 30000); // refresh every 30 seconds
+
+    return () => {
+      clearInterval(pollId);
+      newSocket.disconnect();
+    };
+  }, []);
+
   const loadData = async () => {
     try {
       const employerData = await getEmployer(user.user_id);
       setEmployer({
         ...employerData,
         description: employerData.description || "",
-        logo: employerData.logo || null
+        logo: employerData.logo || null,
+        company_website: employerData.company_website || ""
       });
 
       const jobsData = await getEmployerJobs(user.user_id);
@@ -124,6 +180,8 @@ function EmployerDashboard() {
         job_id: job.job_id,
         title: job.title || job.job_title,
         description: job.description || job.job_description,
+        requirements: job.requirements || "",
+        required_skills: job.required_skills || "",
         location: job.location,
         salary: job.salary || 0,
         job_type: job.job_type || "full-time",
@@ -138,10 +196,13 @@ function EmployerDashboard() {
       setApplicants(applicationsData.map(app => ({
         application_id: app.application_id,
         job_id: app.job_id,
+        applicant_id: app.applicant_id,
         applicant_name: app.applicant_name,
         applicant_email: app.applicant_email,
         job_title: app.job_title,
         applied_date: app.applied_at?.split("T")[0] || "",
+        pwd_verification: app.pwd_verification || "",
+        pwd_verification_status: app.pwd_verification_status || "pending",
         match_score: app.match_score || 0,
         distance: app.distance || 0,
         experience: app.experience || "",
@@ -149,50 +210,24 @@ function EmployerDashboard() {
         education: app.education || "",
         status: app.status || "pending",
         cover_letter: app.cover_letter || "",
-        resume: app.resume || ""
+        custom_resume: app.custom_resume || "",
+        interview_details: app.interview_date ? {
+          interview_date: app.interview_date,
+          interview_time: app.interview_time,
+          interview_type: app.interview_type,
+          notes: app.interview_notes
+        } : null,
+        disability_type: app.disability_type || ""
       })));
 
-      setAnalytics({
-        total_applicants: applicationsData.length,
-        active_jobs: jobsData.length,
-        job_views: 0,
-        average_match_score: applicationsData.length ? Math.round(applicationsData.reduce((acc, item) => acc + (item.match_score || 0), 0) / applicationsData.length) : 0,
-        hiring_rate: 0,
-        new_applicants_today: 0
-      });
-
-      // Create notifications based on applications
-      const notificationsList = [];
-      let notificationId = 1;
-
-      // Add notifications for recent applications (last 7 days)
-      const recentApplications = applicationsData.filter(app => {
-        const appliedDate = new Date(app.applied_at);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return appliedDate >= weekAgo;
-      });
-
-      recentApplications.forEach(app => {
-        notificationsList.push({
-          id: notificationId++,
-          type: "application",
-          message: `New application from ${app.applicant_name} for ${app.job_title}`,
-          date: app.applied_at?.split("T")[0] || new Date().toISOString().split("T")[0]
-        });
-      });
-
-      // Add some default notifications if no recent applications
-      if (notificationsList.length === 0) {
-        notificationsList.push({
-          id: notificationId++,
-          type: "info",
-          message: "Welcome to your employer dashboard!",
-          date: new Date().toISOString().split("T")[0]
-        });
-      }
-
-      setNotifications(notificationsList);
+      // Get real notifications from backend
+      const notificationsData = await getEmployerNotifications(user.user_id);
+      setNotifications(notificationsData.map(notif => ({
+        id: notif.id,
+        type: notif.type,
+        message: notif.message,
+        date: notif.date?.split("T")[0] || new Date().toISOString().split("T")[0]
+      })));
 
       setLoading(false);
     } catch (error) {
@@ -201,17 +236,64 @@ function EmployerDashboard() {
     }
   };
 
+  // Fetch function for real-time updates
+  const fetchApplications = async () => {
+    try {
+      const applicationsData = await getEmployerApplications(user.user_id);
+      setApplicants(applicationsData.map(app => ({
+        application_id: app.application_id,
+        job_id: app.job_id,
+        applicant_id: app.applicant_id,
+        applicant_name: app.applicant_name,
+        applicant_email: app.applicant_email,
+        job_title: app.job_title,
+        applied_date: app.applied_at?.split("T")[0] || "",
+        pwd_verification: app.pwd_verification || "",
+        pwd_verification_status: app.pwd_verification_status || "pending",
+        match_score: app.match_score || 0,
+        distance: app.distance || 0,
+        experience: app.experience || "",
+        skills: app.skills || "",
+        education: app.education || "",
+        status: app.status || "pending",
+        cover_letter: app.cover_letter || "",
+        custom_resume: app.custom_resume || "",
+        interview_details: app.interview_date ? {
+          interview_date: app.interview_date,
+          interview_time: app.interview_time,
+          interview_type: app.interview_type,
+          notes: app.interview_notes
+        } : null,
+        disability_type: app.disability_type || ""
+      })));
+    } catch (err) {
+      console.error("Error fetching applications:", err);
+    }
+  };
+
   const handleCreateJob = async () => {
     try {
+      console.log("=== BEFORE SENDING JOB ===");
+      console.log("jobForm.required_skills:", jobForm.required_skills);
+      console.log("Type:", typeof jobForm.required_skills);
+      console.log("=== END ===");
+
       const newJobPayload = {
         title: jobForm.title,
         description: jobForm.description,
+        requirements: jobForm.requirements,
+        required_skills: jobForm.required_skills,
         location: jobForm.location,
         latitude: jobForm.latitude || null,
         longitude: jobForm.longitude || null,
         category: jobForm.category,
-        status: jobForm.status || "active"
+        status: jobForm.status || "active",
+        salary: jobForm.salary || null,
+        job_type: jobForm.job_type || "full-time",
+        job_radius: jobForm.job_radius || 10
       };
+
+      console.log("Full payload being sent to backend:", JSON.stringify(newJobPayload, null, 2));
 
       if (jobForm.id) {
         // Update existing job
@@ -237,6 +319,7 @@ function EmployerDashboard() {
         title: "",
         description: "",
         requirements: "",
+        required_skills: "",
         salary: "",
         location: "",
         latitude: "",
@@ -260,11 +343,16 @@ function EmployerDashboard() {
       await updateEmployerJob(user.user_id, job.job_id, {
         title: job.title,
         description: job.description,
+        requirements: job.requirements || "",
+        required_skills: job.required_skills || "",
         location: job.location,
         latitude: job.latitude || null,
         longitude: job.longitude || null,
         category: job.category,
-        status: newStatus
+        status: newStatus,
+        salary: job.salary || null,
+        job_type: job.job_type || "full-time",
+        job_radius: job.job_radius || 10
       });
 
       setJobs((prevJobs) => prevJobs.map((j) =>
@@ -282,16 +370,17 @@ function EmployerDashboard() {
       username: employer.username || "",
       company_name: employer.company_name || "",
       company_address: employer.company_address || "",
-      contact_number: employer.contact_number || ""
+      contact_number: employer.contact_number || "",
+      company_website: employer.company_website || ""
     });
-    setShowProfileModal(true);
+    setShowEditProfileModal(true);
   };
 
   const handleUpdateProfile = async () => {
     try {
       await updateEmployer(user.user_id, profileForm);
       await loadData();
-      setShowProfileModal(false);
+      setShowEditProfileModal(false);
       alert("Profile updated successfully!");
     } catch (error) {
       console.error("Update profile error", error);
@@ -301,12 +390,38 @@ function EmployerDashboard() {
 
   const handleLogoFileChange = (event) => {
     const file = event.target.files[0];
+    console.log("File selected:", file);
+    console.log("File details:", {
+      name: file?.name,
+      size: file?.size,
+      type: file?.type
+    });
+
     if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert("Please select a valid image file (JPEG, PNG, GIF, or WebP).");
+        return;
+      }
+
+      // Validate file size (2MB limit)
+      const maxSize = 2 * 1024 * 1024; // 2MB
+      if (file.size > maxSize) {
+        alert("File size must be less than 2MB.");
+        return;
+      }
+
       setSelectedLogo(file);
       // Create preview URL
       const reader = new FileReader();
-      reader.onload = (e) => setLogoPreview(e.target.result);
+      reader.onload = (e) => {
+        console.log("Preview created");
+        setLogoPreview(e.target.result);
+      };
       reader.readAsDataURL(file);
+    } else {
+      console.log("No file selected");
     }
   };
 
@@ -316,15 +431,25 @@ function EmployerDashboard() {
       return;
     }
 
+    if (!user || !user.user_id) {
+      alert("User not logged in properly. Please log in again.");
+      return;
+    }
+
+    console.log("Uploading logo for user:", user);
+    console.log("User ID:", user?.user_id);
+    console.log("Employer data:", employer);
+    console.log("Selected logo:", selectedLogo);
+
     try {
       await uploadEmployerLogo(user.user_id, selectedLogo);
-      await loadData(); // Refresh data to show new logo
+      await loadData(); 
       setSelectedLogo(null);
       setLogoPreview(null);
       alert("Logo uploaded successfully!");
     } catch (error) {
       console.error("Upload logo error", error);
-      alert("Failed to upload logo. Please try again.");
+      alert("Failed to upload logo. Please try again. Error: " + error.message);
     }
   };
 
@@ -332,8 +457,7 @@ function EmployerDashboard() {
     try {
       await updateApplicationStatus(applicationId, action);
       await loadData();
-      
-      // Show appropriate message
+
       if (action === "shortlisted") {
         alert("Applicant shortlisted successfully! You can now schedule an interview.");
       } else if (action === "rejected") {
@@ -346,6 +470,27 @@ function EmployerDashboard() {
     } catch (error) {
       console.error("Error updating application status:", error);
       alert("Failed to update applicant status. Please try again.");
+    }
+  };
+
+  const handleOpenInterviewModal = (applicant) => {
+    setSelectedApplicant(applicant);
+    setShowInterviewModal(true);
+  };
+
+  const handlePwdVerificationAction = async (applicantId, action) => {
+    try {
+      await updatePwdVerificationStatus(user.user_id, applicantId, action);
+      await loadData();
+      
+      if (action === "approved") {
+        alert("PWD verification approved successfully!");
+      } else if (action === "rejected") {
+        alert("PWD verification rejected.");
+      }
+    } catch (error) {
+      console.error("Error updating PWD verification status:", error);
+      alert("Failed to update PWD verification status. Please try again.");
     }
   };
 
@@ -448,65 +593,86 @@ function EmployerDashboard() {
   if (!employer) return <h2>No employer data found</h2>;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "Arial, sans-serif" }}>
-      <aside style={{ width: "240px", backgroundColor: "#f8f9fa", borderRight: "1px solid #ddd", padding: "20px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <h2 style={{ margin: 0, fontSize: "1.5rem" }}>🏢 Employer</h2>
-          <p style={{ margin: "5px 0 0", color: "#666" }}>{employer?.company_name || "Your Company"}</p>
+    <div className="employer-dashboard-container">
+      {/* Top Header with Profile Icon */}
+      <div className="employer-dashboard-header">
+        <div>
+          <h1>ABLEWORK Employer</h1>
+          
         </div>
-        {[
-          { id: "dashboard", label: "Dashboard", icon: "📊" },
-          { id: "profile", label: "Company Profile", icon: "🏢" },
-          { id: "jobs", label: "Job Postings", icon: "📢" },
-          { id: "applicants", label: "Applicants", icon: "👥" },
-          { id: "matching", label: "Smart Matching", icon: "🧠" },
-          { id: "analytics", label: "Analytics", icon: "📊" },
-          { id: "notifications", label: "Notifications", icon: "🔔" },
-          { id: "settings", label: "Settings", icon: "⚙️" }
-        ].map(tab => (
+        <div className="dashboard-profile-action">
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              width: "100%",
-              textAlign: "left",
-              padding: "10px 14px",
-              marginBottom: "8px",
-              borderRadius: "6px",
-              border: activeTab === tab.id ? "2px solid #007bff" : "1px solid #ddd",
-              backgroundColor: activeTab === tab.id ? "#e3f2fd" : "#fff",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: activeTab === tab.id ? "bold" : "normal"
-            }}
+            type="button"
+            className="profile-icon-btn"
+            onClick={() => setShowProfilePopup(prev => !prev)}
           >
-            {tab.icon} {tab.label}
+            {employer?.company_name ? employer.company_name.charAt(0).toUpperCase() : "E"}
           </button>
-        ))}
-      </aside>
+          {showProfilePopup && (
+            <div className="profile-popup-card">
+              <p className="profile-popup-name"><strong>{employer?.company_name || "Company"}</strong></p>
+              <p className="profile-popup-email">{employer?.email || user?.email || "No email found"}</p>
+              <button
+                type="button"
+                className="profile-popup-edit-btn"
+                onClick={() => {
+                  setShowProfileModal(true);
+                  setShowProfilePopup(false);
+                }}
+              >
+                Edit Profile
+              </button>
+              <button
+                type="button"
+                className="profile-popup-logout-btn"
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to logout?')) {
+                    logout();
+                    window.location.href = "/";
+                  }
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+          {/* Side Bar */}
+      <div className="employer-dashboard-content">
+        <aside className="employer-dashboard-sidebar">
+          <div className="employer-dashboard-nav">
+            {[
+              { id: "dashboard", label: "Dashboard"},
+              { id: "jobs", label: "Job Postings"},
+              { id: "applicants", label: "Applicants"},
+              { id: "notifications", label: "Notifications"},
+              { id: "settings", label: "Settings"}
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setShowProfilePopup(false);
+                }}
+                className={activeTab === tab.id ? "active" : ""}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </div>
+        </aside>
 
-      <main style={{ flex: 1, padding: "20px", maxWidth: "1200px", margin: "auto" }}>
-        <h1 style={{ fontSize: "2.5rem", marginBottom: "20px", textAlign: "center" }}>🏢 Employer Dashboard</h1>
+        <main className="employer-dashboard-main">
 
       {/* Dashboard Tab */}
       {activeTab === "dashboard" && (
         <DashboardOverview
-          analytics={analytics}
-          notifications={notifications}
-          setActiveTab={setActiveTab}
-          setShowJobModal={setShowJobModal}
-        />
-      )}
-
-      {/* Company Profile Tab */}
-      {activeTab === "profile" && (
-        <CompanyProfile
           employer={employer}
-          logoPreview={logoPreview}
-          selectedLogo={selectedLogo}
-          handleEditProfile={handleEditProfile}
-          handleLogoFileChange={handleLogoFileChange}
-          handleUploadLogo={handleUploadLogo}
+          jobs={jobs}
+          applicants={applicants}
+          setShowJobModal={setShowJobModal}
+          setActiveTab={setActiveTab}
         />
       )}
 
@@ -527,29 +693,11 @@ function EmployerDashboard() {
         <ApplicantsManagement
           applicants={applicants}
           selectedJob={selectedJob}
-          setSelectedJob={setSelectedJob}
-          openApplicantModal={openApplicantModal}
-          handleApplicantAction={handleApplicantAction}
-          setSelectedApplicant={setSelectedApplicant}
-          setShowInterviewModal={setShowInterviewModal}
-          setShowOfferModal={setShowOfferModal}
-        />
-      )}
-
-      {/* Smart Matching Tab */}
-      {activeTab === "matching" && (
-        <SmartMatching
-          applicants={applicants}
-          openApplicantModal={openApplicantModal}
-        />
-      )}
-
-      {/* Analytics Tab */}
-      {activeTab === "analytics" && (
-        <Analytics
-          analytics={analytics}
-          applicants={applicants}
-          jobs={jobs}
+          onClearFilter={() => setSelectedJob(null)}
+          onViewApplicant={openApplicantModal}
+          onApplicantAction={handleApplicantAction}
+          onScheduleInterview={handleOpenInterviewModal}
+          onPwdVerificationAction={handlePwdVerificationAction}
         />
       )}
 
@@ -578,6 +726,142 @@ function EmployerDashboard() {
           setShowJobModal={setShowJobModal}
           handleCreateJob={handleCreateJob}
         />
+      )}
+
+      {/* Employer Profile Edit Modal */}
+      {showProfileModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            width: "95%",
+            maxWidth: "800px",
+            backgroundColor: "#fff",
+            borderRadius: "14px",
+            padding: "24px",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.16)",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h3 style={{ margin: 0 }}>Company Profile Management</h3>
+              <button onClick={() => setShowProfileModal(false)} style={{ fontSize: "24px", background: "none", border: "none", cursor: "pointer" }}>×</button>
+            </div>
+            <CompanyProfile
+              employer={employer}
+              logoPreview={logoPreview}
+              selectedLogo={selectedLogo}
+              onEditProfile={handleEditProfile}
+              onLogoFileChange={handleLogoFileChange}
+              onUploadLogo={handleUploadLogo}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      {showEditProfileModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 1100
+        }}>
+          <div style={{
+            width: "95%",
+            maxWidth: "520px",
+            backgroundColor: "#fff",
+            borderRadius: "14px",
+            padding: "24px",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.16)",
+            maxHeight: "90vh",
+            overflowY: "auto"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h3 style={{ margin: 0 }}>Edit Company Profile</h3>
+              <button onClick={() => setShowEditProfileModal(false)} style={{ fontSize: "24px", background: "none", border: "none", cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ display: "grid", gap: "16px" }}>
+              <input
+                type="text"
+                name="company_name"
+                value={profileForm.company_name}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+                placeholder="Company Name"
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+              <input
+                type="text"
+                name="company_address"
+                value={profileForm.company_address}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+                placeholder="Company Address"
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+              <input
+                type="text"
+                name="company_website"
+                value={profileForm.company_website}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+                placeholder="Company Website"
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+              <input
+                type="text"
+                name="contact_number"
+                value={profileForm.contact_number}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+                placeholder="Contact Number"
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+              <input
+                type="email"
+                name="email"
+                value={profileForm.email}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+                placeholder="Email"
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+              <input
+                type="text"
+                name="username"
+                value={profileForm.username}
+                onChange={(e) => setProfileForm(prev => ({ ...prev, [e.target.name]: e.target.value }))}
+                placeholder="Username"
+                style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #ddd" }}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "10px" }}>
+                <button
+                  onClick={() => setShowEditProfileModal(false)}
+                  style={{ padding: "10px 20px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateProfile}
+                  style={{ padding: "10px 20px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Applicant Detail Modal */}
@@ -614,7 +898,8 @@ function EmployerDashboard() {
         />
       )}
 
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

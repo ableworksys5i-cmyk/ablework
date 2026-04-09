@@ -81,11 +81,10 @@ function ApplicationDetailsModal({ isOpen, onClose, application, onWithdrawAppli
               </div>
             </div>
 
-            {application.status === 'pending' && (
-              <div style={{ backgroundColor: "#fff3cd", border: "1px solid #ffeaa7", borderRadius: "6px", padding: "15px", marginTop: "15px" }}>
-                <p style={{ margin: 0, color: "#856404" }}>
-                  <strong>⏳ Your application is being reviewed.</strong> We'll notify you once there's an update.
-                </p>
+            {application.status === 'shortlisted' && (
+              <div style={{ backgroundColor: "#d1ecf1", border: "1px solid #bee5eb", borderRadius: "6px", padding: "15px", marginTop: "15px" }}>
+                <h4 style={{ margin: "0 0 10px 0", color: "#0c5460" }}>⭐ Congratulations! You've Been Shortlisted</h4>
+                <p style={{ margin: 0 }}>Your application has been shortlisted by the employer. They may contact you soon to schedule an interview.</p>
               </div>
             )}
 
@@ -93,10 +92,13 @@ function ApplicationDetailsModal({ isOpen, onClose, application, onWithdrawAppli
               <div style={{ backgroundColor: "#d1ecf1", border: "1px solid #bee5eb", borderRadius: "6px", padding: "15px", marginTop: "15px" }}>
                 <h4 style={{ margin: "0 0 10px 0", color: "#0c5460" }}>📅 Interview Scheduled</h4>
                 <p style={{ margin: "0 0 5px 0" }}><strong>Date:</strong> {new Date(application.interviewDetails.date).toLocaleDateString()}</p>
-                <p style={{ margin: "0 0 5px 0" }}><strong>Time:</strong> {application.interviewDetails.time}</p>
+                <p style={{ margin: "0 0 5px 0" }}><strong>Time:</strong> {application.interviewDetails.time ? new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(`2000-01-01T${application.interviewDetails.time}`)) : "TBD"}</p>
                 <p style={{ margin: "0 0 5px 0" }}><strong>Type:</strong> {application.interviewDetails.type}</p>
                 {application.interviewDetails.location && (
                   <p style={{ margin: 0 }}><strong>Location:</strong> {application.interviewDetails.location}</p>
+                )}
+                {application.interviewDetails.notes && (
+                  <p style={{ margin: "10px 0 0 0", color: "#0c5460" }}><strong>What to bring:</strong> {application.interviewDetails.notes}</p>
                 )}
               </div>
             )}

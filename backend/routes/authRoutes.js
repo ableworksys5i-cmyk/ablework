@@ -28,10 +28,25 @@ const upload = multer({
   }
 });
 
-// Register
-router.post("/register", upload.single("pwd_verification_file"), authController.register);
+// Register (single upload for applicant/employer verification document)
+router.post("/register", upload.single("verification_file"), authController.register);
 
 // Login
 router.post("/login", authController.login);
+
+// Verify Email
+router.post("/verify-email", authController.verifyEmail);
+
+// Resend Verification Code
+router.post("/resend-verification", authController.resendVerificationCode);
+
+// Forgot Password
+router.post("/forgot-password", authController.forgotPassword);
+
+// Verify Reset Code
+router.post("/verify-reset-code", authController.verifyResetCode);
+
+// Reset Password
+router.post("/reset-password", authController.resetPassword);
 
 module.exports = router;

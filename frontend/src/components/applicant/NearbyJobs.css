@@ -15,3 +15,37 @@
 .status-pill { display: inline-block; background: #e6f4ff; color: #0065d1; border-radius: 999px; padding: 4px 10px; font-size: 13px; }
 .map-placeholder { height: 300px; background: #e8eef8; border: 2px dashed #c5d4e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
 .empty-state { text-align: center; padding: 60px; border: 2px dashed #ccd7e3; border-radius: 10px; background: #f9fbff; }
+
+/* Job popup styling */
+.job-popup h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #102a43;
+}
+
+.job-popup p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: #52637a;
+}
+
+.job-popup .view-job-btn {
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.job-popup .view-job-btn:hover {
+  background-color: #0056b3;
+}
+
+/* Map container styling */
+.leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+}
