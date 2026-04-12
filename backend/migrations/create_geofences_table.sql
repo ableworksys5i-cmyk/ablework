@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS geofences (
   geofence_id INT AUTO_INCREMENT PRIMARY KEY,
   employer_id INT NOT NULL,
-  name VARCHAR(255) NOT NULL,
   latitude DECIMAL(10, 7) NOT NULL,
   longitude DECIMAL(10, 7) NOT NULL,
   radius INT NOT NULL COMMENT 'Radius in meters',

@@ -1,10 +1,9 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import './NearbyJobs.css';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { formatJobLocationText, isCoordinateLocation, getGoogleMapsLink } from '../../utils/locationUtils';
-import { getNearbyJobs } from '../../api/api';
 
 // Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -25,128 +24,18 @@ const approximateIcon = new L.Icon({
 });
 
 const defaultIcon = new L.Icon.Default();
-const FIXED_SEARCH_RADIUS_KM = 10;
 
 function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJobs }) {
   // jobs prop now contains the already filtered nearby jobs from the backend
-  const [displayedJobs, setDisplayedJobs] = useState(jobs || []);
-  const [realTimeUserLocation, setRealTimeUserLocation] = useState(null);
-  const [manualLocation, setManualLocation] = useState({ lat: '', lng: '', query: '' });
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchMessage, setSearchMessage] = useState('');
-  const [searchError, setSearchError] = useState('');
-
-  useEffect(() => {
-    setDisplayedJobs(jobs || []);
-  }, [jobs]);
-
-  const handleLocationSearch = async () => {
-    const query = manualLocation.query.trim();
-    if (!query) {
-      alert('Please enter a city, neighborhood, or address.');
-      return;
-    }
-
-    setSearchLoading(true);
-    setSearchError('');
-    setSearchMessage('Looking up location...');
-
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
-      );
-      if (!response.ok) {
-        throw new Error('Location lookup failed. Please try again.');
-      }
-      const results = await response.json();
-      if (!results.length) {
-        throw new Error('No location found. Try a more specific place name.');
-      }
-
-      const { lat, lon, display_name } = results[0];
-      setManualLocation(prev => ({ ...prev, lat, lng: lon }));
-      setSearchMessage(`Showing jobs within ${FIXED_SEARCH_RADIUS_KM} km of ${display_name}`);
-      const nearby = await getNearbyJobs(null, lat, lon, FIXED_SEARCH_RADIUS_KM);
-      setDisplayedJobs(nearby || []);
-    } catch (err) {
-      console.error('Location search error:', err);
-      const message = err?.message || 'Failed to find that location.';
-      setSearchError(message);
-      alert(message);
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  const handleResetLocation = () => {
-    setManualLocation({ lat: '', lng: '', query: '' });
-    setSearchMessage('');
-    setSearchError('');
-    setDisplayedJobs(jobs || []);
-  };
-
-  const nearbyJobs = displayedJobs;
-
-  useEffect(() => {
-    // Get user's real-time location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setRealTimeUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-
-      // Watch position for real-time updates
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          setRealTimeUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error("Geolocation watch error:", error);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-
-      return () => navigator.geolocation.clearWatch(watchId);
-    }
-  }, []);
+  const nearbyJobs = jobs;
 
   const isJobSaved = (jobId) => savedJobs.some(saved => saved.job_id === jobId || saved.id === jobId);
 
-  const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
-    const toRad = (value) => (value * Math.PI) / 180;
-    const R = 6371;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const getJobCoordinates = (job) => {
-    if (job.latitude && job.longitude) {
-      const lat = parseFloat(job.latitude);
-      const lng = parseFloat(job.longitude);
-      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
-    }
-    if (isCoordinateLocation(job.location)) {
-      const [lat, lng] = job.location.split(',').map(c => parseFloat(c.trim()));
-      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
-    }
-    return getApproximateCoordinates(job.location);
-  };
+  const jobCoordinates = useMemo(() => {
+    return nearbyJobs
+      .filter(job => isCoordinateLocation(job.location))
+      .map(job => job.location.split(',').map(c => parseFloat(c.trim())));
+  }, [nearbyJobs]);
 
   const userCoordinates = useMemo(() => {
     if (!isCoordinateLocation(userLocation)) return null;
@@ -155,41 +44,8 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
     return [lat, lng];
   }, [userLocation]);
 
-  const searchAreaCenter = useMemo(() => {
-    if (manualLocation.lat && manualLocation.lng) {
-      const lat = parseFloat(manualLocation.lat);
-      const lng = parseFloat(manualLocation.lng);
-      if (!isNaN(lat) && !isNaN(lng)) return [lat, lng];
-    }
-    if (userCoordinates) return userCoordinates;
-    if (realTimeUserLocation) return [realTimeUserLocation.lat, realTimeUserLocation.lng];
-    return null;
-  }, [manualLocation, userCoordinates, realTimeUserLocation]);
-
-  const isJobInsideRadius = useMemo(() => {
-    if (!searchAreaCenter) return () => true;
-    return (job) => {
-      const jobCoords = getJobCoordinates(job);
-      if (!jobCoords) return false;
-      const [jobLat, jobLng] = jobCoords;
-      const [centerLat, centerLng] = searchAreaCenter;
-      const distance = calculateDistanceKm(centerLat, centerLng, jobLat, jobLng);
-      return distance <= FIXED_SEARCH_RADIUS_KM;
-    };
-  }, [searchAreaCenter]);
-
-  const jobsWithinRadius = useMemo(() => {
-    return nearbyJobs.filter(isJobInsideRadius);
-  }, [nearbyJobs, isJobInsideRadius]);
-
-  const jobCoordinates = useMemo(() => {
-    return jobsWithinRadius
-      .map(getJobCoordinates)
-      .filter(coords => coords !== null);
-  }, [jobsWithinRadius]);
-
   const mapCenter = useMemo(() => {
-    if (searchAreaCenter) return searchAreaCenter;
+    if (userCoordinates) return userCoordinates;
 
     // Find first job with coordinates (exact or approximate)
     for (const job of nearbyJobs) {
@@ -212,16 +68,15 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
       }
     }
 
-    // Default to Manila if no coordinates found
-    return [14.5995, 120.9842];
-  }, [manualLocation, realTimeUserLocation, userCoordinates, nearbyJobs]);
+    // Default to NYC if no coordinates found
+    return [40.7128, -74.0060];
+  }, [userCoordinates, nearbyJobs]);
 
   const mapBounds = useMemo(() => {
     const bounds = [...jobCoordinates];
     if (userCoordinates) bounds.push(userCoordinates);
-    if (searchAreaCenter) bounds.push(searchAreaCenter);
     return bounds.length ? bounds : null;
-  }, [jobCoordinates, userCoordinates, searchAreaCenter]);
+  }, [jobCoordinates, userCoordinates]);
 
 
   return (
@@ -235,7 +90,7 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
           <div>
             <h3 style={{ margin: "0 0 5px 0" }}>Jobs in your area</h3>
             <p style={{ margin: 0, color: "#666" }}>
-              Found {jobsWithinRadius.length} job{jobsWithinRadius.length !== 1 ? 's' : ''} within {FIXED_SEARCH_RADIUS_KM} km
+              Found {nearbyJobs.length} job{nearbyJobs.length !== 1 ? 's' : ''} nearby
             </p>
           </div>
         </div>
@@ -244,48 +99,8 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
         </p>
       </div>
 
-      {/* Manual Location Setting */}
-      <div style={{ border: "2px solid #333", borderRadius: "12px", padding: "20px", backgroundColor: "#f9f9f9", marginBottom: "30px" }}>
-        <h3 style={{ margin: "0 0 15px 0" }}>🔧 Set Preferred Location</h3>
-        <p style={{ margin: "0 0 15px 0", fontSize: "14px", color: "#666" }}>
-          Type a city, town, or address to search jobs around that area.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1.8fr auto", gap: "10px", alignItems: "center", marginBottom: "10px", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="e.g. Manila, Philippines"
-            value={manualLocation.query}
-            onChange={(e) => setManualLocation(prev => ({ ...prev, query: e.target.value }))}
-            style={{ flex: 1, minWidth: "220px", padding: "10px", border: "1px solid #ccc", borderRadius: "6px" }}
-          />
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={handleLocationSearch}
-              disabled={searchLoading}
-              style={{ padding: "10px 18px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "6px", cursor: searchLoading ? "not-allowed" : "pointer" }}
-            >
-              {searchLoading ? 'Searching…' : 'Search Location'}
-            </button>
-            <button
-              type="button"
-              onClick={handleResetLocation}
-              style={{ padding: "10px 18px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-        {searchMessage && (
-          <p style={{ margin: "10px 0 0 0", fontSize: "14px", color: "#2e7d32" }}>{searchMessage}</p>
-        )}
-        {searchError && (
-          <p style={{ margin: "10px 0 0 0", fontSize: "14px", color: "#c62828" }}>{searchError}</p>
-        )}
-      </div>
-
       {/* Interactive Map */}
-      {(jobsWithinRadius.length > 0 || searchAreaCenter) && (
+      {nearbyJobs.length > 0 && (
         <div style={{ border: "2px solid #333", borderRadius: "12px", padding: "20px", backgroundColor: "#f9f9f9", marginBottom: "30px" }}>
           <h3 style={{ margin: "0 0 20px 0" }}>🗺️ Job Locations Map</h3>
           <div style={{ height: "400px", borderRadius: "8px", overflow: "hidden" }}>
@@ -308,40 +123,7 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
                   </Popup>
                 </Marker>
               )}
-              {realTimeUserLocation && (
-                <Marker position={[realTimeUserLocation.lat, realTimeUserLocation.lng]}>
-                  <Popup>
-                    <div>
-                      <strong>Your real-time location</strong>
-                      <p>Live GPS position</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-              {searchAreaCenter && (
-                <Circle
-                  center={searchAreaCenter}
-                  radius={FIXED_SEARCH_RADIUS_KM * 1000}
-                  pathOptions={{
-                    color: '#1b5e20',
-                    fillColor: '#1b5e20',
-                    fillOpacity: 0.12,
-                    weight: 2
-                  }}
-                />
-              )}
-              {manualLocation.lat && manualLocation.lng && (
-                <Marker position={[parseFloat(manualLocation.lat), parseFloat(manualLocation.lng)]}>
-                  <Popup>
-                    <div>
-                      <strong>Manual location</strong>
-                      <p>{manualLocation.query || 'Set location'}</p>
-                      <p>Radius: {FIXED_SEARCH_RADIUS_KM} km</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-              {jobsWithinRadius.map((job) => {
+              {nearbyJobs.map((job) => {
                 let position = null;
                 let isApproximate = false;
                 let displayLocation = job.location || 'Location not specified';
@@ -366,46 +148,45 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
                   }
                 }
 
+                // Only create marker if we have a position
                 if (position) {
                   return (
-                    <React.Fragment key={job.job_id || job.id || `${job.job_title}-${job.company}`}> 
-                      <Marker
-                        position={position}
-                        icon={isApproximate ? approximateIcon : defaultIcon}
-                      >
-                        <Popup>
-                          <div className="job-popup">
-                            <h3>{job.job_title}</h3>
-                            <p><strong>Company:</strong> {job.company || "Company"}</p>
-                            <p><strong>Location:</strong> {displayLocation}</p>
-                            <p><strong>Distance:</strong> {job.distance_km ? `${job.distance_km.toFixed(1)} km` : 'N/A'}</p>
-                            <p><strong>Salary:</strong> {job.salary ? `$${job.salary}` : 'Not specified'}</p>
-                            <p><strong>Description:</strong> {job.description ? job.description.substring(0, 100) + '...' : 'No description available'}</p>
-                            <button
-                              className="view-job-btn"
-                              onClick={() => window.open(getGoogleMapsLink(job.location), '_blank')}
-                            >
-                              View Location
-                            </button>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    </React.Fragment>
+                    <Marker
+                      key={job.id || job.job_title}
+                      position={position}
+                      icon={isApproximate ? approximateIcon : defaultIcon}
+                    >
+                      <Popup>
+                        <div className="job-popup">
+                          <h3>{job.job_title}</h3>
+                          <p><strong>Company:</strong> {job.company || "Company"}</p>
+                          <p><strong>Location:</strong> {displayLocation}</p>
+                          <p><strong>Salary:</strong> {job.salary ? `$${job.salary}` : 'Not specified'}</p>
+                          <p><strong>Description:</strong> {job.description ? job.description.substring(0, 100) + '...' : 'No description available'}</p>
+                          <button
+                            className="view-job-btn"
+                            onClick={() => window.open(getGoogleMapsLink(job.location), '_blank')}
+                          >
+                            View Location
+                          </button>
+                        </div>
+                      </Popup>
+                    </Marker>
                   );
                 }
                 return null;
-              })}
+              }).filter(marker => marker !== null)}
             </MapContainer>
           </div>
           <p style={{ margin: "10px 0 0 0", fontSize: "14px", color: "#666", textAlign: "center" }}>
-            Showing {jobsWithinRadius.length} job{jobsWithinRadius.length !== 1 ? 's' : ''} on map
+            Showing {nearbyJobs.length} job{nearbyJobs.length !== 1 ? 's' : ''} on map
           </p>
         </div>
       )}
 
       {/* Job Listings */}
       <div style={{ display: "grid", gap: "20px" }}>
-        {jobsWithinRadius.map((job, index) => (
+        {nearbyJobs.map((job, index) => (
           <div key={index} style={{ border: "2px solid #333", borderRadius: "12px", padding: "20px", backgroundColor: "#f9f9f9" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "15px" }}>
               <div style={{ flex: 1 }}>
@@ -528,7 +309,7 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
           </div>
         ))}
 
-        {jobsWithinRadius.length === 0 && (
+        {nearbyJobs.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px", border: "2px dashed #ddd", borderRadius: "12px", backgroundColor: "#f9f9f9" }}>
             <h3 style={{ margin: "0 0 10px 0", color: "#666" }}>No nearby jobs found</h3>
             <p style={{ margin: "0 0 20px 0", color: "#666" }}>
@@ -542,6 +323,52 @@ function NearbyJobs({ jobs, userLocation, onApply, onSaveJob, onViewJob, savedJo
           </div>
         )}
       </div>
+
+      {/* Interactive Map */}
+      {nearbyJobs.length > 0 && (
+        <div style={{ border: "2px solid #333", borderRadius: "12px", padding: "20px", backgroundColor: "#f9f9f9", marginTop: "30px" }}>
+          <h3 style={{ margin: "0 0 20px 0" }}>🗺️ Job Locations Map</h3>
+          <div style={{ height: "400px", borderRadius: "8px", overflow: "hidden" }}>
+            <MapContainer center={mapCenter} zoom={10} style={{ height: "100%", width: "100%" }}>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              {nearbyJobs.filter(job => isCoordinateLocation(job.location)).map((job, index) => {
+                const [lat, lng] = job.location.split(',').map(c => parseFloat(c.trim()));
+                return (
+                  <Marker key={index} position={[lat, lng]}>
+                    <Popup>
+                      <div>
+                        <h4>{job.job_title}</h4>
+                        <p>{job.company || "Company"}</p>
+                        <p>{job.salary || "N/A"}</p>
+                        <button
+                          onClick={() => window.open(getGoogleMapsLink(job.location), '_blank')}
+                          style={{
+                            padding: "5px 10px",
+                            backgroundColor: "#007bff",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "12px"
+                          }}
+                        >
+                          View Location
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+            </MapContainer>
+          </div>
+          <p style={{ margin: "10px 0 0 0", fontSize: "14px", color: "#666", textAlign: "center" }}>
+            Showing {nearbyJobs.length} job{nearbyJobs.length !== 1 ? 's' : ''} on map
+          </p>
+        </div>
+      )}
 
     </div>
   );

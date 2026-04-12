@@ -215,7 +215,6 @@ function JobModal({ jobForm, setJobForm, setShowJobModal, handleCreateJob }) {
             )}
           </div>
 
-
           {/* Salary Range */}
           <div>
             <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Salary Range</label>

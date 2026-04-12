@@ -193,8 +193,7 @@ router.get("/:user_id/jobs", (req, res) => {
 // Create new employer job posting
 router.post("/:user_id/jobs", (req, res) => {
   const { user_id } = req.params;
-  const { title, description, requirements, required_skills, location, latitude, longitude, category, status, salary, job_type } = req.body;
-  const DEFAULT_JOB_RADIUS = 10;
+  const { title, description, requirements, required_skills, location, latitude, longitude, category, status, salary, job_type, job_radius } = req.body;
   
   console.log("=== CREATE JOB ===" );
   console.log("required_skills:", required_skills, "(type:", typeof required_skills, ")");
@@ -231,7 +230,7 @@ router.post("/:user_id/jobs", (req, res) => {
       processedSkills,
       salary || null,
       job_type || 'full-time',
-      DEFAULT_JOB_RADIUS
+      job_radius || 10
     ], (err, result) => {
       if (err) {
         console.log("Create job error:", err);
@@ -259,8 +258,7 @@ router.post("/:user_id/jobs", (req, res) => {
 // Update employer job posting
 router.put("/:user_id/jobs/:job_id", (req, res) => {
   const { user_id, job_id } = req.params;
-  const { title, description, requirements, required_skills, location, latitude, longitude, category, status, salary, job_type } = req.body;
-  const DEFAULT_JOB_RADIUS = 10;
+  const { title, description, requirements, required_skills, location, latitude, longitude, category, status, salary, job_type, job_radius } = req.body;
 
   getEmployerIdFromUser(user_id, (err, employer_id) => {
     if (err) {
@@ -292,7 +290,7 @@ router.put("/:user_id/jobs/:job_id", (req, res) => {
       processedSkills,
       salary || null,
       job_type || 'full-time',
-      DEFAULT_JOB_RADIUS,
+      job_radius || 10,
       job_id,
       employer_id
     ], (err, result) => {
@@ -314,7 +312,8 @@ router.put("/:user_id/jobs/:job_id", (req, res) => {
         longitude,
         status,
         salary,
-        job_type
+        job_type,
+        job_radius
       });
       console.log('Emitted jobUpdated event for job:', job_id);
       res.json({ message: "Job updated successfully" });

@@ -20,6 +20,7 @@ function JobPostings({ jobs, setShowJobModal, setSelectedJob, setActiveTab, setJ
               location: "",
               latitude: "",
               longitude: "",
+              job_radius: 10,
               job_type: "full-time",
               category: "",
               status: "active"
@@ -84,7 +85,8 @@ function JobPostings({ jobs, setShowJobModal, setSelectedJob, setActiveTab, setJ
                     <span>${job.salary}</span>
                     <span>{job.job_type}</span>
                     <span>{job.category}</span>
-                    <span> {job.applicants_count} applicants</span>
+                    <span>📍 {job.job_radius}km radius</span>
+                    <span>👥 {job.applicants_count} applicants</span>
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -119,6 +121,7 @@ function JobPostings({ jobs, setShowJobModal, setSelectedJob, setActiveTab, setJ
                         location: job.location,
                         latitude: job.latitude || "",
                         longitude: job.longitude || "",
+                        job_radius: job.job_radius,
                         job_type: job.job_type,
                         category: job.category,
                         status: job.status || "active",

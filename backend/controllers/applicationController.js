@@ -117,25 +117,7 @@ exports.applyJob = (req, res) => {
         const application_id = result.insertId;
         console.log("✓ Application created - ID:", application_id);
 
-        // Create a notification for the employer
-        const notificationSql = `
-          INSERT INTO notifications (employer_id, type, title, message, related_id, status, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, NOW())
-        `;
-
-        const notificationTitle = "New Application";
-        const notificationMessage = `A new applicant has applied for ${job.job_title}`;
-        const notificationType = "application";
-
-        db.query(notificationSql, [job.employer_id, notificationType, notificationTitle, notificationMessage, application_id, 'unread'], (notifErr) => {
-          if (notifErr) {
-            console.log("⚠️ Notification insert error:", notifErr);
-            // Still return success even if notification fails
-          } else {
-            console.log("✓ Notification created");
-          }
-
-          // Emit real-time update
+        // Emit real-time update
           global.io.emit('applicationSubmitted', {
             application_id,
             job_id,

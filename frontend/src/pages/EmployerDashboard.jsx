@@ -107,6 +107,7 @@ function EmployerDashboard() {
     location: "",
     latitude: "",
     longitude: "",
+    job_radius: 10,
     job_type: "full-time",
     category: "technology"
   });
@@ -185,6 +186,7 @@ function EmployerDashboard() {
         salary: job.salary || 0,
         job_type: job.job_type || "full-time",
         category: job.category || job.job_category || "technology",
+        job_radius: job.job_radius || 10,
         status: job.status || "active",
         posted_date: job.created_at ? job.created_at.split("T")[0] : "",
         applicants_count: job.applicants_count || 0
@@ -223,8 +225,10 @@ function EmployerDashboard() {
       setNotifications(notificationsData.map(notif => ({
         id: notif.id,
         type: notif.type,
+        title: notif.title,
         message: notif.message,
-        date: notif.date?.split("T")[0] || new Date().toISOString().split("T")[0]
+        date: notif.date?.split("T")[0] || new Date().toISOString().split("T")[0],
+        read: false
       })));
 
       setLoading(false);
@@ -287,7 +291,8 @@ function EmployerDashboard() {
         category: jobForm.category,
         status: jobForm.status || "active",
         salary: jobForm.salary || null,
-        job_type: jobForm.job_type || "full-time"
+        job_type: jobForm.job_type || "full-time",
+        job_radius: jobForm.job_radius || 10
       };
 
       console.log("Full payload being sent to backend:", JSON.stringify(newJobPayload, null, 2));
@@ -321,6 +326,7 @@ function EmployerDashboard() {
         location: "",
         latitude: "",
         longitude: "",
+        job_radius: 10,
         job_type: "full-time",
         category: "technology",
         status: "active"
@@ -347,7 +353,8 @@ function EmployerDashboard() {
         category: job.category,
         status: newStatus,
         salary: job.salary || null,
-        job_type: job.job_type || "full-time"
+        job_type: job.job_type || "full-time",
+        job_radius: job.job_radius || 10
       });
 
       setJobs((prevJobs) => prevJobs.map((j) =>

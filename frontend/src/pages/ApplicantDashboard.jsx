@@ -51,6 +51,7 @@ function ApplicantDashboard() {
   });
   const [categoryFilter, setCategoryFilter] = useState("");
   const [userLocation, setUserLocation] = useState({ latitude: null, longitude: null });
+  const [manualLocation, setManualLocation] = useState({ latitude: "", longitude: "" });
   const [nearbyJobs, setNearbyJobs] = useState([]);
   const [smartMatchedJobs, setSmartMatchedJobs] = useState([]);
   const [jobsByCategory, setJobsByCategory] = useState([]);
@@ -379,6 +380,31 @@ function ApplicantDashboard() {
       }
     }
   };
+
+  const handleManualLocationSearch = async () => {
+    const lat = parseFloat(manualLocation.latitude);
+    const lng = parseFloat(manualLocation.longitude);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      alert("Please enter valid latitude (-90 to 90) and longitude (-180 to 180) coordinates.");
+      return;
+    }
+
+    console.log("🔍 Manual location search:", { lat, lng });
+    setUserLocation({ latitude: lat, longitude: lng });
+    try {
+      console.log("🔍 Fetching nearby jobs for user_id:", user.user_id, "at", lat, lng);
+      const nearby = await getNearbyJobs(user.user_id, lat, lng);
+      console.log("✅ Nearby jobs fetched:", nearby?.length || 0, "jobs");
+      console.log("📋 Nearby jobs data:", nearby);
+      setNearbyJobs(nearby || []);
+    } catch (err) {
+      console.error("❌ Failed to load nearby jobs:", err);
+      setNearbyJobs([]);
+      alert("Failed to load nearby jobs. Please try again.");
+    }
+  };
+
 
   const handleApply = async (job_id) => {
     try {
