@@ -158,12 +158,20 @@ export const getJobsByCategory = async (category) => {
   return response.json();
 };
 
-export const getNearbyJobs = async (user_id, latitude, longitude) => {
+export const getNearbyJobs = async (user_id, latitude, longitude, radiusKm) => {
   let query = "";
   if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null) {
-    query = `?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`;
+    const params = [`lat=${encodeURIComponent(latitude)}`, `lng=${encodeURIComponent(longitude)}`];
+    if (radiusKm !== undefined && radiusKm !== null) {
+      params.push(`radius_km=${encodeURIComponent(radiusKm)}`);
+    }
+    query = `?${params.join("&")}`;
   } else if (user_id) {
-    query = `?user_id=${encodeURIComponent(user_id)}`;
+    const params = [`user_id=${encodeURIComponent(user_id)}`];
+    if (radiusKm !== undefined && radiusKm !== null) {
+      params.push(`radius_km=${encodeURIComponent(radiusKm)}`);
+    }
+    query = `?${params.join("&")}`;
   } else {
     throw new Error("API get nearby jobs requires user_id or latitude/longitude");
   }
@@ -173,6 +181,45 @@ export const getNearbyJobs = async (user_id, latitude, longitude) => {
     const errorBody = await response.text();
     throw new Error(`API get nearby jobs failed: ${response.status} ${errorBody}`);
   }
+  return response.json();
+};
+
+export const getGeofences = async (employer_id) => {
+  const response = await fetch(`${API_URL}/api/geofences?employer_id=${encodeURIComponent(employer_id)}`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`API get geofences failed: ${response.status} ${errorBody}`);
+  }
+  return response.json();
+};
+
+export const createGeofence = async (employer_id, data) => {
+  const response = await fetch(`${API_URL}/api/geofences`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ employer_id, ...data })
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`API create geofence failed: ${response.status} ${errorBody}`);
+  }
+
+  return response.json();
+};
+
+export const deleteGeofence = async (employer_id, geofence_id) => {
+  const response = await fetch(`${API_URL}/api/geofences/${encodeURIComponent(geofence_id)}?employer_id=${encodeURIComponent(employer_id)}`, {
+    method: "DELETE"
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`API delete geofence failed: ${response.status} ${errorBody}`);
+  }
+
   return response.json();
 };
 

@@ -18,6 +18,7 @@ exports.getRecommendedJobs = (req, res) => {
 
 exports.getNearbyJobs = (req, res) => {
   const { user_id, lat, lng } = req.query;
+  const FIXED_SEARCH_RADIUS_KM = 10;
 
   const getUserLocation = (callback) => {
     const hasCoords = typeof lat !== "undefined" && typeof lng !== "undefined";
@@ -81,40 +82,23 @@ exports.getNearbyJobs = (req, res) => {
           return res.status(500).json({ error: "Database error", details: jobErr.message });
         }
 
-      db.query("SELECT * FROM geofences", (gfErr, geofences) => {
-        if (gfErr) {
-          return res.status(500).json({ error: "Database error", details: gfErr.message });
-        }
-
-        const activeGeofences = geofences.filter((gf) => {
-          const distToFence = calculateDistanceKm(userLat, userLng, parseFloat(gf.latitude), parseFloat(gf.longitude));
-          const fenceRadiusKm = parseFloat(gf.radius) / 1000; // if radius is meters; adjust as needed
-          return distToFence <= fenceRadiusKm;
-        });
-
         const nearbyJobs = jobs
           .map((job) => {
             const jobLat = parseFloat(job.latitude);
             const jobLng = parseFloat(job.longitude);
-            
-            // Skip jobs with invalid coordinates
+
             if (isNaN(jobLat) || isNaN(jobLng)) {
               return null;
             }
-            
+
             const distance = calculateDistanceKm(userLat, userLng, jobLat, jobLng);
-            const inGeofence = activeGeofences.some((gf) => {
-              const distJobToFence = calculateDistanceKm(jobLat, jobLng, parseFloat(gf.latitude), parseFloat(gf.longitude));
-              const fenceRadiusKm = parseFloat(gf.radius) / 1000;
-              return distJobToFence <= fenceRadiusKm;
-            });
-            return { ...job, distance_km: distance, in_geofence: inGeofence };
+            const inGeofence = distance <= FIXED_SEARCH_RADIUS_KM;
+            return { ...job, distance_km: distance, in_geofence, search_radius_km: FIXED_SEARCH_RADIUS_KM };
           })
-          .filter((job) => job !== null && job.distance_km <= 10)
+          .filter((job) => job !== null && job.in_geofence)
           .sort((a, b) => a.distance_km - b.distance_km);
 
         res.json(nearbyJobs);
-      });
     });
   });
 };
